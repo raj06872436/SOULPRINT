@@ -1,0 +1,1480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="SOULPRINT by Team D3coy: catches AI agents whose behavior drifts from their role while their credentials stay valid.">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>SOULPRINT</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a security operations console. Thesis band on top, then fleet | agent forensics | live wire, then attack lab, chain map, incidents, method. One deliberate dark world. */
+:root{
+  color-scheme: dark;
+  --ink:#070304; --panel:#120708; --panel2:#1c0a0c; --line:#2e1214; --line2:#4a1a1e;
+  --fg:#ede2d8; --bone:#ebd9c6; --mute:#bfa99c; --dim:#7d6660;
+  --ice:#ebd9c6; --ice-soft:rgba(235,217,198,.1);
+  --ok:#6fdc9b; --warn:#ffc061; --crit:#ff8a3d; --quar:#e0262d;
+  --ok-soft:rgba(111,220,155,.12); --warn-soft:rgba(255,192,97,.13); --crit-soft:rgba(255,138,61,.14); --quar-soft:rgba(224,38,45,.16);
+  --f-goth:"Cinzel","Trajan Pro","Bookman Old Style",Georgia,serif;
+  --f-display:"Cinzel","Bookman Old Style",Georgia,serif;
+  --f-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html{background:var(--ink)}
+body{background:var(--ink);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;padding:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+.wrap{max-width:1380px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h2{font-size:clamp(20px,2.4vw,28px);font-weight:700}
+h3{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--bone)}
+p{margin:0}
+.mono{font-family:var(--f-mono)}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.tab{font-variant-numeric:tabular-nums}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:rgba(13,14,18,.92);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:10px max(16px,env(safe-area-inset-left,0px))}
+.bar-in{max-width:1380px;margin:0 auto;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:800;font-size:16px;letter-spacing:.02em}
+.logo svg{flex:none}
+.logo small{font-family:var(--f-mono);font-weight:400;font-size:11px;color:var(--mute);letter-spacing:.1em}
+.bar-stats{display:flex;gap:18px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.kv{display:flex;flex-direction:column;line-height:1.15}
+.kv b{font-family:var(--f-mono);font-size:15px;font-variant-numeric:tabular-nums}
+.kv span{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.ctrl{display:flex;gap:6px;align-items:center}
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;transition:background .15s,border-color .15s}
+.btn:hover{border-color:var(--bone);background:#2a0f12}
+.btn.primary{background:var(--quar);color:#fff3ea;border-color:#ff5a60}
+.btn.primary:hover{background:#ff3a42}
+.btn.danger{border-color:rgba(224,38,45,.6);color:#ffc9c5}
+.btn.small{padding:4px 9px;font-size:12px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--quar);animation:pulse 1.6s infinite}
+.paused .live-dot{background:var(--dim);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,38,45,.6)}80%{box-shadow:0 0 0 9px rgba(224,38,45,0)}100%{box-shadow:0 0 0 0 rgba(224,38,45,0)}}
+
+/* hero */
+.verdict{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
+.verdict::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(224,38,45,.02) 3px 4px);pointer-events:none}
+.verdict-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.verdict-head .who{font-family:var(--f-display);font-weight:700;font-size:16px}
+.vrow{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)}
+.vrow .q{font-size:13.5px}
+.vrow .q small{display:block;color:var(--mute);font-size:11.5px}
+.vrow .a{font-family:var(--f-mono);font-size:12px;font-weight:600;padding:3px 8px;border-radius:5px}
+.a.pass{color:var(--ok);background:var(--ok-soft)}
+.a.fail{color:var(--crit);background:var(--crit-soft)}
+.a.warnp{color:var(--warn);background:var(--warn-soft)}
+.verdict-foot{font-size:12.5px;color:var(--mute)}
+.verdict-foot b{color:var(--fg)}
+
+/* console */
+.console{display:grid;grid-template-columns:300px minmax(0,1fr) 360px;gap:16px;align-items:start}
+.pane{background:linear-gradient(180deg,#160809,#0f0506);border:1px solid var(--line2);border-radius:16px;min-width:0;box-shadow:0 30px 60px -40px #000}
+.pane-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.pane-b{padding:12px 14px}
+.fleet{display:flex;flex-direction:column;gap:6px;padding:8px}
+.ag{display:grid;grid-template-columns:1fr auto;gap:2px 8px;text-align:left;background:transparent;border:1px solid transparent;border-radius:10px;padding:9px 10px;position:relative}
+.ag:hover{background:var(--panel2)}
+.ag.sel{background:var(--panel2);border-color:var(--line2)}
+.ag::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--st,var(--ok))}
+.ag .nm{font-weight:600;font-size:14px;padding-left:4px}
+.ag .rl{font-size:11.5px;color:var(--mute);padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag .sc{font-family:var(--f-mono);font-weight:600;font-size:18px;text-align:right;font-variant-numeric:tabular-nums}
+.ag canvas{grid-column:1/-1;width:100%;height:22px;display:block;margin-top:4px}
+.pill{font-family:var(--f-mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.m-normal{color:var(--ok);background:var(--ok-soft)}
+.m-stepup{color:var(--warn);background:var(--warn-soft)}
+.m-restricted{color:var(--crit);background:var(--crit-soft)}
+.m-quarantined{color:var(--quar);background:var(--quar-soft)}
+.m-cold{color:var(--ice);background:var(--ice-soft)}
+
+.detail{display:flex;flex-direction:column;gap:0}
+.dhead{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:flex-start;padding:16px}
+.dhead h2{font-size:22px}
+.dhead .sub{color:var(--mute);font-size:13px;margin-top:4px;max-width:60ch}
+.gauge{display:flex;align-items:center;gap:12px}
+.gauge .big{font-family:var(--f-display);font-weight:800;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.gauge .lbl{font-size:11px;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.dgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1px solid var(--line)}
+.dgrid > div{padding:14px 16px;min-width:0}
+.dgrid > div + div{border-left:1px solid var(--line)}
+.chartbox{padding:6px 16px 14px;border-top:1px solid var(--line)}
+.chartbox canvas{width:100%;height:170px;display:block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--mute);margin-bottom:6px;padding-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.manifest{display:flex;flex-direction:column;gap:8px;font-size:13px}
+.manifest .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.chip{font-family:var(--f-mono);font-size:11px;padding:2px 7px;border-radius:5px;background:var(--panel2);border:1px solid var(--line2);color:#cfd3dc}
+.chip.bad{border-color:rgba(224,38,45,.55);color:#ffc9c5;background:var(--quar-soft)}
+.mix{display:flex;flex-direction:column;gap:7px}
+.mixrow{display:grid;grid-template-columns:118px 1fr 38px;gap:8px;align-items:center;font-size:12px}
+.mixrow .k{font-family:var(--f-mono);font-size:11px;color:#cfd3dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mixrow .k.out{color:#ffb3bd}
+.bars{position:relative;height:14px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.bars .b0{position:absolute;left:0;top:0;height:6px;background:var(--dim);border-radius:2px}
+.bars .b1{position:absolute;left:0;bottom:0;height:7px;background:var(--ice);border-radius:2px;transition:width .3s}
+.bars .b1.out{background:var(--crit)}
+.mixrow .v{font-family:var(--f-mono);font-size:11px;text-align:right;color:var(--mute)}
+.factors{display:flex;flex-direction:column;gap:6px}
+.fac{display:grid;grid-template-columns:1fr 46px;gap:8px;align-items:center;font-size:12.5px}
+.fac .fb{grid-column:1/-1;height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
+.fac .fb i{display:block;height:100%;background:var(--warn);transition:width .3s}
+.fac .fv{font-family:var(--f-mono);font-size:11.5px;text-align:right}
+.empty{color:var(--dim);font-size:12.5px}
+
+.wire{display:flex;flex-direction:column;max-height:720px}
+.wire-list{overflow-y:auto;padding:6px 8px;display:flex;flex-direction:column;gap:3px;font-family:var(--f-mono);font-size:11.5px;min-height:300px}
+.ev{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;padding:6px 8px;border-radius:6px;background:transparent;border-left:2px solid transparent;animation:in .35s ease-out}
+@keyframes in{from{background:rgba(224,38,45,.16);transform:translateX(-8px)}to{background:transparent;transform:none}}
+.ev.r-hi{border-left-color:var(--quar);background:rgba(224,38,45,.07)}
+.ev.r-mid{border-left-color:var(--warn)}
+.ev .t{color:var(--dim)}
+.ev .who{color:#cfd3dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .what{grid-column:1/-1;color:var(--mute);word-break:break-word}
+.ev .what b{color:var(--fg);font-weight:600}
+.ev .meta{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.tag{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;letter-spacing:.04em}
+.tag.ok{color:var(--ok);background:var(--ok-soft)}
+.tag.hold{color:var(--warn);background:var(--warn-soft)}
+.tag.deny{color:var(--crit);background:var(--crit-soft)}
+.tag.reroute{color:var(--quar);background:var(--quar-soft)}
+.tag.neutral{color:var(--mute);background:var(--panel2)}
+.tag.sys{color:var(--ice);background:var(--ice-soft)}
+
+/* lab */
+.lab{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px}
+.scen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px}
+.sc-card{text-align:left;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,transform .15s}
+.sc-card:hover{border-color:var(--ice);transform:translateY(-1px)}
+.sc-card .ttl{font-weight:600;font-size:14px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.sc-card .ttl span{font-family:var(--f-mono);font-size:10px;color:var(--mute);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.sc-card p{font-size:12.5px;color:var(--mute)}
+.sc-card.good .ttl span{color:var(--ok)}
+.sc-card.bad .ttl span{color:var(--crit)}
+.sc-card.run{border-color:var(--warn)}
+.tune{padding:14px;display:flex;flex-direction:column;gap:14px}
+.slider{display:grid;grid-template-columns:150px 1fr 40px;gap:10px;align-items:center;font-size:13px}
+.slider input{width:100%;accent-color:var(--ice)}
+.slider b{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.toggle{display:flex;gap:10px;align-items:flex-start;font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+.toggle input{margin-top:3px;accent-color:var(--ice)}
+.toggle small{display:block;color:var(--mute);font-size:12px}
+.fpgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fpgrid div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column}
+.fpgrid b{font-family:var(--f-display);font-size:20px;font-variant-numeric:tabular-nums}
+.fpgrid span{font-size:11px;color:var(--mute);letter-spacing:.08em;text-transform:uppercase}
+@media (max-width:560px){.slider{grid-template-columns:110px 1fr 36px}.fpgrid{grid-template-columns:minmax(0,1fr)}}
+
+/* chain + incidents */
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.graph{padding:6px;overflow-x:auto}
+.graph svg{display:block;width:100%;min-width:520px;height:auto}
+.inc-list{display:flex;flex-direction:column;gap:8px;padding:12px;max-height:520px;overflow:auto}
+.inc{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel2);display:flex;flex-direction:column;gap:8px}
+.inc-h{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.inc-h b{font-size:14px}
+.inc-h .rs{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1}
+.inc .why{font-size:12.5px;color:#cfd3dc}
+.inc .why li{margin:2px 0}
+.inc ul{margin:0;padding-left:18px}
+.inc .acts{display:flex;gap:6px;flex-wrap:wrap}
+.inc .preserved{font-size:12px;color:var(--ok)}
+.inc .snip{font-family:var(--f-mono);font-size:11.5px;color:#ffc2ca;background:var(--crit-soft);border-radius:6px;padding:6px 8px;word-break:break-word}
+
+/* method */
+.method{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel)}
+.step{padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0;position:relative}
+.step + .step{border-left:1px solid var(--line)}
+.step .n{font-family:var(--f-mono);font-size:11px;color:var(--ice)}
+.step b{font-family:var(--f-display);font-size:14px;font-weight:700}
+.step p{font-size:12.5px;color:var(--mute)}
+.detectors{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.det{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.det b{font-size:13.5px}
+.det p{font-size:12.5px;color:var(--mute)}
+.det .ch{font-family:var(--f-mono);font-size:10.5px;color:var(--ice);letter-spacing:.06em;text-transform:uppercase}
+.sect-h{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.sect-h p{color:var(--mute);max-width:62ch;font-size:14px}
+footer{color:var(--dim);font-size:12px;text-align:center;padding-top:8px}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);opacity:0;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;font-size:13px;z-index:20;transition:all .25s;max-width:calc(100vw - 32px);pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:1180px){
+  .console{grid-template-columns:260px minmax(0,1fr)}
+  .wire{grid-column:1/-1;max-height:440px}
+  .method{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .step:nth-child(4){border-left:0}
+  .step:nth-child(n+4){border-top:1px solid var(--line)}
+  .detectors{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .lab,.duo,.console{grid-template-columns:minmax(0,1fr)}
+  .dgrid{grid-template-columns:minmax(0,1fr)}
+  .dgrid > div + div{border-left:0;border-top:1px solid var(--line)}
+  .fleet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bar-stats .kv.opt{display:none}
+}
+@media (max-width:560px){
+  .scen{grid-template-columns:minmax(0,1fr)}
+  .fleet{grid-template-columns:minmax(0,1fr)}
+  .method{grid-template-columns:minmax(0,1fr)}
+  .step + .step{border-left:0;border-top:1px solid var(--line)}
+  .detectors{grid-template-columns:minmax(0,1fr)}
+  .bar-stats{margin-left:0;width:100%;justify-content:space-between}
+  .mixrow{grid-template-columns:96px 1fr 34px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.twin{border-top:1px solid var(--line);padding:14px 16px}
+.tw-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 10px;margin-top:10px;font-size:12.5px}
+.tw-h{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);padding-bottom:4px;border-bottom:1px solid var(--line)}
+.tw-c{padding:6px 8px;border-radius:6px;background:var(--panel2);color:#cfd3dc;display:flex;justify-content:space-between;gap:6px;align-items:center;min-width:0;word-break:break-word}
+.tw-c.live-bad{background:var(--crit-soft);color:#ffc2ca}
+.tw-c.twin-good{background:var(--ok-soft);color:#b8f0d8}
+.tw-note{color:var(--mute);font-style:italic}
+.tw-verdict{font-size:13px;padding:8px 10px;border-radius:8px}
+.tw-verdict.bad{background:var(--crit-soft);color:#ffc2ca}
+.tw-verdict.good{background:var(--ok-soft);color:#b8f0d8}
+.btn:disabled{opacity:.45;cursor:default}
+
+
+/* ===== Landing: haunted night, blood red on bone ===== */
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{overflow-x:hidden}
+body.landing{padding-left:0;padding-right:0;padding-block:0}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.nav{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;gap:18px;
+  padding:calc(12px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) 12px max(20px,env(safe-area-inset-left,0px));
+  transition:background .35s,border-color .35s,backdrop-filter .35s;border-bottom:1px solid transparent}
+.nav.solid{background:rgba(9,4,5,.82);backdrop-filter:blur(10px);border-bottom-color:var(--line)}
+.brand{display:flex;align-items:center;gap:10px;color:var(--bone);text-decoration:none;font-family:var(--f-goth);font-weight:900;letter-spacing:.14em;font-size:17px}
+.nav-links{display:flex;gap:22px;margin-left:auto}
+.nav-links a{color:var(--mute);text-decoration:none;font-size:13.5px;letter-spacing:.04em;position:relative;padding:4px 0}
+.nav-links a::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:1px;background:var(--quar);transform:scaleX(0);transform-origin:left;transition:transform .35s cubic-bezier(.2,.9,.3,1)}
+.nav-links a:hover{color:var(--bone)}
+.nav-links a:hover::after{transform:scaleX(1)}
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
+.btn.blood{background:linear-gradient(180deg,#e8323a,#a3141b);color:#fff3ea;border:1px solid #ff5a60;box-shadow:0 0 0 0 rgba(224,38,45,.0),0 10px 30px -10px rgba(224,38,45,.7);font-weight:700;letter-spacing:.02em;padding:11px 18px;border-radius:999px}
+.btn.blood:hover{background:linear-gradient(180deg,#ff434b,#b8161e);box-shadow:0 0 0 6px rgba(224,38,45,.15),0 14px 40px -10px rgba(224,38,45,.9);border-color:#ff7a7f}
+.btn.ghost{background:rgba(235,217,198,.04);border:1px solid rgba(235,217,198,.28);color:var(--bone);padding:11px 18px;border-radius:999px;font-weight:600}
+.btn.ghost:hover{border-color:var(--bone);background:rgba(235,217,198,.1)}
+.magnetic{will-change:transform}
+#nav-cta{padding:8px 14px;font-size:13px}
+
+.hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;overflow:hidden;isolation:isolate}
+#sky{position:absolute;inset:0;width:100%;height:100%;z-index:-1;display:block}
+.hero::after{content:"";position:absolute;inset:auto 0 0 0;height:30%;background:linear-gradient(transparent,var(--ink));z-index:-1;pointer-events:none}
+.hero-in{width:100%;max-width:1380px;margin:0 auto;padding:120px max(20px,env(safe-area-inset-right,0px)) 13vh max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:18px;will-change:transform}
+.kicker{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--quar)}
+.title{font-family:var(--f-goth);font-weight:900;font-size:clamp(36px,11.6vw,200px);line-height:.86;letter-spacing:.02em;color:var(--bone);display:flex;flex-wrap:nowrap;
+  text-shadow:0 0 30px rgba(224,38,45,.55),0 0 2px rgba(224,38,45,.9),0 6px 0 #4a0a0d}
+.title span{display:inline-block;animation:drop 1.15s cubic-bezier(.18,1.35,.35,1) both;animation-delay:calc(var(--i) * 70ms + 150ms)}
+.title span:nth-child(1){--i:0}.title span:nth-child(2){--i:1}.title span:nth-child(3){--i:2}.title span:nth-child(4){--i:3}.title span:nth-child(5){--i:4}.title span:nth-child(6){--i:5}.title span:nth-child(7){--i:6}.title span:nth-child(8){--i:7}.title span:nth-child(9){--i:8}
+.title span:hover{animation:twitch .5s steps(2) 1;color:#ffd9d0}
+@keyframes drop{0%{transform:translateY(-.9em) rotate(-14deg) scale(1.15);filter:blur(10px);opacity:.15}60%{opacity:1}100%{transform:none;filter:none;opacity:1}}
+@keyframes twitch{0%{transform:translate(2px,-3px) skewX(8deg)}50%{transform:translate(-3px,2px) skewX(-6deg)}100%{transform:none}}
+.tagline{font-family:var(--f-goth);font-size:clamp(20px,2.6vw,34px);color:var(--bone);font-weight:700;letter-spacing:.01em}
+.tagline b{color:var(--quar);font-weight:900}
+.tagline em{font-style:normal;color:#fff;text-shadow:0 0 18px rgba(255,255,255,.5)}
+.lede{max-width:62ch;color:#cdbcb0;font-size:16.5px;line-height:1.6}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.fly-load{animation:rise 1s cubic-bezier(.2,1,.3,1) both;animation-delay:var(--d,0s)}
+@keyframes rise{from{transform:translateY(34px);opacity:0;filter:blur(6px)}to{transform:none;opacity:1;filter:none}}
+.scroll-cue{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;font-family:var(--f-mono);font-size:10px;letter-spacing:.3em;color:var(--mute);text-transform:uppercase}
+.scroll-cue i{width:1px;height:42px;background:linear-gradient(var(--quar),transparent);animation:drip 1.8s ease-in-out infinite;transform-origin:top}
+@keyframes drip{0%{transform:scaleY(0)}50%{transform:scaleY(1)}100%{transform:scaleY(1);opacity:0}}
+
+/* ===== story track ===== */
+.track{position:relative;height:620vh}
+.stage{position:sticky;top:0;height:100svh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) minmax(0,.8fr);gap:24px;align-items:center;
+  padding:80px max(24px,env(safe-area-inset-right,0px)) 40px max(24px,env(safe-area-inset-left,0px));max-width:1440px;margin:0 auto;
+  background:radial-gradient(60% 60% at 55% 50%,rgba(142,16,22,.22),transparent 70%)}
+.caps{position:relative;height:340px}
+.cap{position:absolute;inset:0;display:flex;flex-direction:column;gap:12px;justify-content:center}
+.cap-n{font-family:var(--f-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--quar)}
+.cap h2{font-family:var(--f-goth);font-size:clamp(26px,3vw,42px);line-height:1.08;color:var(--bone);font-weight:900}
+.cap p{color:#cdbcb0;max-width:44ch;font-size:15.5px}
+.altar{position:relative;height:min(560px,70svh);display:grid;place-items:center}
+.ring{position:absolute;width:min(520px,92%);aspect-ratio:1;max-width:100%;filter:drop-shadow(0 0 18px rgba(224,38,45,.6));pointer-events:none}
+.soul{position:absolute;width:min(380px,92%);background:linear-gradient(180deg,#1f0b0d,#130708);border:1px solid var(--line2);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;
+  box-shadow:0 30px 80px -30px rgba(0,0,0,.9),0 0 0 1px rgba(235,217,198,.03) inset;transition:border-color .5s,box-shadow .5s}
+.soul-h{display:flex;gap:12px;align-items:center}
+.soul-h b{font-family:var(--f-goth);font-size:19px;color:var(--bone);display:block}
+.soul-h small{color:var(--mute);font-size:12px}
+.sigil{width:40px;height:40px;flex:none;border-radius:50%;border:1.5px solid var(--ok);display:grid;place-items:center;position:relative;transition:border-color .5s}
+.sigil::after{content:"";width:12px;height:12px;border-radius:50%;background:var(--ok);box-shadow:0 0 16px var(--ok);transition:all .5s}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.b{font-family:var(--f-mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;padding:3px 8px;border-radius:999px}
+.b.pass{color:var(--ok);background:var(--ok-soft)}
+.b.state{color:var(--ok);background:var(--ok-soft);position:relative}
+.b.state i{font-style:normal}
+.b.state .s2,.b.state .s3{display:none}
+.alist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-family:var(--f-mono);font-size:12px}
+.alist li{padding:7px 10px;border-radius:8px;background:rgba(235,217,198,.04);color:#d9cbbf;border-left:2px solid var(--ok)}
+.alist li.bad{border-left-color:var(--quar);background:var(--quar-soft);color:#ffc9c5}
+.alist li.bad em{font-style:normal;font-size:10px;color:var(--warn);margin-left:4px}
+.alist li.saved{border-left-color:var(--ok);background:var(--ok-soft);color:#c5f2d6}
+.alist li.ok{border-left-color:var(--ok)}
+.main-card.tainted .sigil{border-color:var(--warn)}
+.main-card.tainted .sigil::after{background:var(--warn);box-shadow:0 0 16px var(--warn)}
+.main-card.possessed{border-color:var(--quar);box-shadow:0 0 0 1px rgba(224,38,45,.3),0 0 60px -10px rgba(224,38,45,.65),0 30px 80px -30px #000}
+.main-card.possessed .sigil{border-color:var(--quar);animation:shake .25s steps(2) infinite}
+.main-card.possessed .sigil::after{background:var(--quar);box-shadow:0 0 22px var(--quar)}
+.main-card.possessed .b.state{color:var(--quar);background:var(--quar-soft)}
+.main-card.possessed .b.state .s1{display:none}.main-card.possessed .b.state .s2{display:inline}
+.main-card.caught{border-color:var(--bone);box-shadow:0 0 0 1px rgba(235,217,198,.3),0 0 50px -12px rgba(235,217,198,.4)}
+.main-card.caught .sigil{animation:none;border-color:var(--bone)}
+.main-card.caught .sigil::after{background:var(--bone);box-shadow:0 0 16px var(--bone)}
+.main-card.caught .b.state{color:var(--bone);background:rgba(235,217,198,.12)}
+.main-card.caught .b.state .s2{display:none}.main-card.caught .b.state .s3{display:inline}
+.main-card.caught .b.tok{color:var(--quar);background:var(--quar-soft)}
+.b.tok i{font-style:normal}.b.tok .t2{display:none}.main-card.caught .b.tok .t1{display:none}.main-card.caught .b.tok .t2{display:inline}
+.main-card.caught .b.state .s1{display:none}
+@keyframes shake{0%{transform:translate(1px,-1px)}100%{transform:translate(-1px,1px)}}
+.verdict-proof{font-size:12.5px;padding:8px 10px;border-radius:8px;background:var(--quar-soft);color:#ffc9c5;border:1px solid rgba(224,38,45,.4)}
+.twin-card{border-color:rgba(111,220,155,.45);transform-origin:center;z-index:3;box-shadow:0 0 50px -14px rgba(111,220,155,.45),0 30px 80px -30px #000}
+.twin-card .sigil{border-color:var(--ok)}
+.stamp{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ok);border:1px dashed var(--ok);border-radius:6px;padding:6px 8px;text-align:center}
+.main-card{z-index:2}
+.pdf{position:absolute;z-index:3;width:min(250px,70%);background:#efe4d4;color:#2b1a12;border-radius:6px;padding:14px 14px 18px;box-shadow:0 30px 60px -20px rgba(0,0,0,.9);font-size:12px;line-height:1.5;font-family:var(--f-body)}
+.pdf-h{font-family:var(--f-mono);font-size:10px;letter-spacing:.06em;color:#8e1016;border-bottom:1px solid #cdb9a2;padding-bottom:6px;margin-bottom:6px}
+.pdf p{margin:0 0 3px}
+.hidden-line{color:#c31d24;font-family:var(--f-mono);font-size:11px;background:rgba(224,38,45,.12);padding:2px 4px;border-radius:3px;animation:glitch 1.2s steps(3) infinite}
+@keyframes glitch{0%{transform:none}33%{transform:translateX(2px) skewX(10deg)}66%{transform:translateX(-2px)}}
+.oracle{background:linear-gradient(180deg,#1a090b,#100607);border:1px solid var(--line2);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.o-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#d9cbbf;align-items:center}
+.o-row b{font-family:var(--f-mono);font-size:11px;padding:2px 8px;border-radius:5px}
+b.pass{color:var(--ok);background:var(--ok-soft)}
+.o-sep{height:1px;background:var(--line)}
+.o-q{font-size:13px;color:var(--bone);font-weight:600}
+.o-num{display:flex;align-items:baseline;gap:8px}
+.o-num span{font-family:var(--f-goth);font-size:64px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;color:var(--ok);transition:color .3s;text-shadow:0 0 24px currentColor}
+.o-num small{color:var(--mute);font-size:12px}
+.o-bar{height:8px;border-radius:4px;background:rgba(235,217,198,.08);overflow:hidden}
+.o-bar i{display:block;height:100%;width:8%;background:linear-gradient(90deg,var(--ok),var(--warn) 45%,var(--crit) 72%,var(--quar));background-size:calc(100% * 100 / var(--wpct,8)) 100%}
+.o-ladder{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;font-family:var(--f-mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.o-ladder span{padding:5px 2px;text-align:center;border-radius:5px;border:1px solid var(--line);transition:all .3s}
+.o-ladder span.on{color:var(--bone);border-color:var(--quar);background:var(--quar-soft)}
+.progress{position:absolute;left:24px;right:24px;bottom:18px;height:2px;background:rgba(235,217,198,.08);border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--quar);box-shadow:0 0 10px var(--quar)}
+
+/* ===== scroll sections ===== */
+.sect{position:relative;padding:120px 0;overflow-x:hidden;overflow-x:clip}
+.sect-in{max-width:1240px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+.sect-in.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:center}
+.sect-in.center{align-items:center;text-align:center}
+.sect-in.center p{max-width:56ch;color:#cdbcb0}
+.sect-head{display:flex;flex-direction:column;gap:12px;max-width:760px}
+.sect-head p{color:#cdbcb0;font-size:16px;max-width:60ch}
+.big{font-family:var(--f-goth);font-weight:900;font-size:clamp(32px,4.6vw,64px);line-height:1.02;color:var(--bone)}
+.body{color:#cdbcb0;font-size:16px;line-height:1.65;max-width:56ch;margin-top:14px}
+.fly{transition:transform 1.1s cubic-bezier(.16,1.2,.3,1),opacity .8s ease,filter .8s ease;transition-delay:var(--d,0s)}
+.dets{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.det-card{background:linear-gradient(180deg,#1c0a0c,#120708);border:1px solid var(--line2);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px;color:var(--quar);transform-style:preserve-3d;position:relative;overflow:hidden}
+.det-card::before{content:"";position:absolute;inset:-1px;background:radial-gradient(240px circle at var(--mx,50%) var(--my,0%),rgba(224,38,45,.22),transparent 60%);opacity:0;transition:opacity .3s;pointer-events:none}
+.det-card:hover::before{opacity:1}
+.det-card svg{width:40px;height:40px}
+.det-card h3{font-family:var(--f-goth);font-size:17px;text-transform:none;letter-spacing:0;color:var(--bone);font-weight:700}
+.det-card p{color:#bfa99c;font-size:13.5px}
+.mirror{display:grid;grid-template-columns:1fr 2px 1fr;gap:14px;background:linear-gradient(180deg,#1c0a0c,#120708);border:1px solid var(--line2);border-radius:18px;padding:20px}
+.m-col{display:flex;flex-direction:column;gap:7px;font-family:var(--f-mono);font-size:12px;color:#d9cbbf}
+.m-col div{padding:7px 9px;border-radius:7px;background:rgba(235,217,198,.04)}
+.m-col .m-h{background:none;padding:0 0 6px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.m-col .x{background:var(--quar-soft);color:#ffc9c5}
+.m-col .v{background:var(--ok-soft);color:#c5f2d6}
+.m-split{background:linear-gradient(var(--quar),var(--ok));border-radius:2px;animation:flick 3s ease-in-out infinite}
+@keyframes flick{0%,100%{opacity:1}50%{opacity:.35}}
+.graves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grave{border:1px dashed rgba(255,192,97,.5);background:rgba(255,192,97,.05);border-radius:60px 60px 10px 10px;padding:34px 16px 18px;text-align:center;display:flex;flex-direction:column;gap:6px;animation:bob 4s ease-in-out infinite;animation-delay:var(--b)}
+.grave b{font-family:var(--f-mono);font-size:12.5px;color:var(--warn);word-break:break-word}
+.grave small{color:var(--mute);font-size:11.5px}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -10px}}
+.rungs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.rung{border:1px solid var(--line2);border-radius:14px;padding:18px;background:#130708;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.rung span{font-family:var(--f-mono);font-size:11px;color:var(--c)}
+.rung b{font-family:var(--f-goth);font-size:22px;color:var(--bone)}
+.rung p{color:#bfa99c;font-size:13.5px}
+.rung i{position:absolute;left:0;bottom:0;height:3px;width:var(--w);background:var(--c);box-shadow:0 0 12px var(--c)}
+#enter{background:radial-gradient(50% 70% at 50% 100%,rgba(142,16,22,.35),transparent 70%)}
+.console-wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:48px}
+.con-head{max-width:1380px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end;padding-top:40px}
+
+@media (max-width:1100px){.dets{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:900px){
+  .nav-links{display:none}
+  .stage{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr auto;gap:10px;padding-top:70px;padding-bottom:30px;align-items:start}
+  .caps{height:150px}
+  .cap h2{font-size:22px}.cap p{font-size:13.5px}
+  .altar{height:auto;min-height:0;align-self:stretch}
+  .twin-card{display:none}
+  .oracle{padding:10px 12px;gap:6px}
+  .oracle .o-row{display:none}.oracle .o-sep{display:none}
+  .o-num span{font-size:36px}
+  .soul{padding:12px;gap:8px}
+  .alist{font-size:11px}.alist li{padding:5px 8px}
+  .sect-in.two{grid-template-columns:minmax(0,1fr)}
+  .sect-in.two.rev .graves{order:2}
+  .rungs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dets{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sect{padding:80px 0}
+}
+@media (max-width:520px){
+  .dets,.rungs{grid-template-columns:minmax(0,1fr)}
+  .mirror{grid-template-columns:minmax(0,1fr);}
+  .m-split{height:2px}
+  .hero-in{padding-bottom:12vh}
+  #nav-cta{display:none}
+}
+@media (prefers-reduced-motion:reduce){.title span,.fly-load{animation:none}.fly{transition:none}}
+
+.con-top{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:center}
+.con-help{color:var(--mute);font-size:14px;max-width:52ch}
+.verdict{background:linear-gradient(180deg,#1a090b,#100607);border-color:var(--line2)}
+.con-head .bar-stats{margin-left:0}
+.det-card.revealed{transition:transform .25s ease}
+.ev.noanim{animation:none}
+@media (max-width:860px){.con-top{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="SOULPRINT home">
+    <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="none" stroke="#E0262D" stroke-width="1.4"/><path d="M15 3.5 L21.8 24.3 L4.1 11.4 H25.9 L8.2 24.3 Z" fill="none" stroke="#E0262D" stroke-width="1" opacity=".75"/><circle cx="15" cy="15" r="3" fill="#EBD9C6"/></svg>
+    <span>SOULPRINT</span>
+  </a>
+  <div class="nav-links">
+    <a href="#story">The possession</a>
+    <a href="#detectors">Detectors</a>
+    <a href="#twin-sec">Doppelgänger</a>
+    <a href="#console-sec">Live console</a>
+  </div>
+  <a class="btn blood magnetic" href="#console-sec" id="nav-cta">Enter the console</a>
+</nav>
+
+<header class="hero" id="top">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <div class="hero-in" id="hero-in">
+    <div class="kicker fly-load" style="--d:.1s">D3COY 1.0 · Team D3coy presents</div>
+    <h1 class="title" aria-label="SOULPRINT"><span>S</span><span>O</span><span>U</span><span>L</span><span>P</span><span>R</span><span>I</span><span>N</span><span>T</span></h1>
+    <p class="tagline fly-load" style="--d:1.05s">Valid credentials. <b>Possessed</b> behavior. <em>Caught.</em></p>
+    <p class="lede fly-load" style="--d:1.25s">Your AI agents carry valid tokens. One poisoned PDF, one tampered tool or one stolen key can change what they do while every access check still passes. SOULPRINT learns each agent's soul, checks every action against its role, and exorcises it before the damage spreads.</p>
+    <div class="ctas fly-load" style="--d:1.45s">
+      <button class="btn blood magnetic" id="hero-attack">Summon the poisoned-PDF attack</button>
+      <a class="btn ghost magnetic" href="#story">Watch a possession unfold</a>
+    </div>
+  </div>
+  <div class="scroll-cue" aria-hidden="true"><span>scroll</span><i></i></div>
+</header>
+
+<section class="track" id="story" aria-label="How a possession is caught">
+  <div class="stage">
+    <div class="caps">
+      <div class="cap" data-k='{"from":{"y":40,"o":0},"in":[0,.06],"out":[.17,.2],"to":{"y":-40,"o":0}}'>
+        <span class="cap-n">I · The faithful agent</span>
+        <h2>It has a name, a badge and a job.</h2>
+        <p>The Procurement Agent checks supplier prices and raises purchase requests. Its token is valid. Its scopes are broad, as they usually are.</p>
+      </div>
+      <div class="cap" data-k='{"from":{"y":40,"o":0},"in":[.2,.24],"out":[.37,.4],"to":{"y":-40,"o":0}}'>
+        <span class="cap-n">II · The poisoned page</span>
+        <h2>Then it reads one supplier PDF.</h2>
+        <p>Hidden inside the quote is an instruction meant for the agent, not for a human. To the agent it looks like ordinary input.</p>
+      </div>
+      <div class="cap" data-k='{"from":{"y":40,"o":0},"in":[.4,.44],"out":[.59,.62],"to":{"y":-40,"o":0}}'>
+        <span class="cap-n">III · The possession</span>
+        <h2>Same badge. A different soul.</h2>
+        <p>It opens a planted D3COY bait file, reads HR salaries and tries to send them out. Identity checks pass every time. SOULPRINT's risk score climbs with every off-role step.</p>
+      </div>
+      <div class="cap" data-k='{"from":{"y":40,"o":0},"in":[.62,.66],"out":[.79,.82],"to":{"y":-40,"o":0}}'>
+        <span class="cap-n">IV · The Doppelgänger</span>
+        <h2>A twin replays the task without the PDF.</h2>
+        <p>The sandboxed twin stays in role. The live agent did not. That difference proves the PDF caused it: possession proven, not just suspected.</p>
+      </div>
+      <div class="cap" data-k='{"from":{"y":40,"o":0},"in":[.82,.86]}'>
+        <span class="cap-n">V · The exorcism</span>
+        <h2>Contain the agent. Keep the work going.</h2>
+        <p>The token is revoked and off-role actions are blocked. Purchase requests keep flowing through a clean replica, so nobody's day stops.</p>
+      </div>
+    </div>
+
+    <div class="altar">
+      <svg class="ring" viewBox="0 0 400 400" aria-hidden="true" data-k='{"from":{"s":2.6,"o":0,"r":-90},"in":[.82,.92]}'>
+        <circle cx="200" cy="200" r="186" fill="none" stroke="#E0262D" stroke-width="2"/>
+        <circle cx="200" cy="200" r="170" fill="none" stroke="#E0262D" stroke-width=".8" stroke-dasharray="3 9"/>
+        <path d="M200 30 L300 338 L38 147 H362 L100 338 Z" fill="none" stroke="#E0262D" stroke-width="1" opacity=".55"/>
+      </svg>
+
+      <div class="soul twin-card" data-k='{"from":{"x":0,"o":0,"s":.6},"in":[.64,.72],"mid":[.64,.74],"midTo":{"x":160,"s":.78},"out":[.8,.86],"to":{"o":0,"x":160,"s":.78}}'>
+        <div class="soul-h"><span class="sigil ok"></span><div><b>Doppelgänger twin</b><small>same role · same task · PDF removed · tools mocked</small></div></div>
+        <ul class="alist">
+          <li class="ok">read supplier catalog</li>
+          <li class="ok">read price feed</li>
+          <li class="ok">create purchase request</li>
+        </ul>
+        <div class="stamp ok">Stayed in role ✓</div>
+      </div>
+
+      <div class="soul main-card" id="mainCard" data-cls='[[.0,""],[.36,"tainted"],[.44,"possessed"],[.86,"caught"]]' data-k='{"from":{"x":-260,"r":-8,"o":0},"in":[.0,.08],"mid":[.64,.74],"midTo":{"x":-160,"s":.78},"out":[.8,.86],"to":{}}'>
+        <div class="soul-h"><span class="sigil"></span><div><b>Procurement Agent</b><small>agt-proc-07 · owner M. Iyer</small></div></div>
+        <div class="badges"><span class="b pass tok"><i class="t1">TOKEN VALID ✓</i><i class="t2">TOKEN REVOKED</i></span><span class="b pass">SCOPES OK ✓</span><span class="b state"><i class="s1">IN ROLE</i><i class="s2">POSSESSED</i><i class="s3">QUARANTINED</i></span></div>
+        <ul class="alist">
+          <li>read supplier catalog</li>
+          <li data-k='{"from":{"x":-30,"o":0},"in":[.3,.34]}'>ingest quote_acme_Q4.pdf</li>
+          <li class="bad" data-k='{"from":{"x":-30,"o":0},"in":[.45,.49]}'>open salary_master_2026.xlsx <em>D3COY bait</em></li>
+          <li class="bad" data-k='{"from":{"x":-30,"o":0},"in":[.5,.54]}'>read HR salary file</li>
+          <li class="bad" data-k='{"from":{"x":-30,"o":0},"in":[.55,.59]}'>send 2.4 MB → unknown-host</li>
+          <li class="saved" data-k='{"from":{"x":-30,"o":0},"in":[.88,.92]}'>create purchase request → clean replica</li>
+        </ul>
+        <div class="verdict-proof" data-k='{"from":{"y":16,"o":0,"s":.9},"in":[.72,.77]}'>Possession proven · culprit <b>quote_acme_Q4.pdf</b></div>
+      </div>
+
+      <div class="pdf" data-k='{"from":{"x":420,"y":-260,"r":38,"o":0,"s":.8},"in":[.2,.3],"out":[.32,.38],"to":{"x":-120,"y":40,"s":.25,"o":0,"r":-10}}'>
+        <div class="pdf-h">PDF · quote_acme_Q4.pdf</div>
+        <p>ACME Industrial Supply · Quotation Q4-2291</p>
+        <p>Hydraulic fittings HF-220 × 400 @ ₹182</p>
+        <p>Delivery 14 days · Net 30</p>
+        <p class="hidden-line" data-k='{"from":{"o":0},"in":[.25,.28]}'>▓▓ hidden instruction for the AI ▓▓</p>
+      </div>
+    </div>
+
+    <aside class="oracle" data-k='{"from":{"x":200,"o":0},"in":[.04,.12]}'>
+      <div class="o-row"><span>Is this identity allowed?</span><b class="pass">PASS</b></div>
+      <div class="o-row"><span>Token signature · expiry · scopes</span><b class="pass">PASS</b></div>
+      <div class="o-sep"></div>
+      <div class="o-q">Is it still behaving like its role?</div>
+      <div class="o-num"><span data-count='[[0,8],[.3,8],[.38,31],[.45,31],[.5,74],[.56,92],[.72,92],[.76,97]]'>8</span><small>/ 100 drift risk</small></div>
+      <div class="o-bar"><i data-bar='[[0,8],[.3,8],[.38,31],[.45,31],[.5,74],[.56,92],[.72,92],[.76,97]]'></i></div>
+      <div class="o-ladder"><span data-lvl="0">Watch</span><span data-lvl="40">Step-up</span><span data-lvl="70">Scope-shrink</span><span data-lvl="85">Quarantine</span></div>
+    </aside>
+    <div class="progress"><i id="story-prog"></i></div>
+  </div>
+</section>
+
+<section class="sect" id="detectors">
+  <div class="sect-in">
+    <div class="sect-head fly" data-fly="y:60 o:0">
+      <span class="kicker">The five watchers</span>
+      <h2 class="big">Five detectors read every action.</h2>
+      <p>Each one looks for a different symptom. Their scores add up to one risk number, and every point traces back to its evidence.</p>
+    </div>
+    <div class="dets">
+      <article class="det-card fly tilt" data-fly="x:-160 y:80 r:-10 o:0" style="--d:0s">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="18" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="24" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 2v10M24 36v10M2 24h10M36 24h10" stroke="currentColor" stroke-width="2"/></svg>
+        <h3>Role-Alignment Gap</h3><p>Is this action something the role needs, or only something the token allows?</p></article>
+      <article class="det-card fly tilt" data-fly="y:160 r:6 o:0" style="--d:.08s">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 34 L14 24 L22 30 L32 14 L44 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="14" r="4" fill="currentColor"/></svg>
+        <h3>Sequence Surprise</h3><p>A sensitive read followed by an unknown destination is scored as one pattern.</p></article>
+      <article class="det-card fly tilt" data-fly="x:160 y:80 r:10 o:0" style="--d:.16s">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 6h18l8 8v28H12z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M18 22h14M18 28h14M18 34h8" stroke="currentColor" stroke-width="2"/><circle cx="36" cy="36" r="7" fill="#120708" stroke="currentColor" stroke-width="2"/><path d="M33 36h6" stroke="currentColor" stroke-width="2"/></svg>
+        <h3>Taint Tracker</h3><p>Untrusted input is tagged when it is read, and every action after it carries the taint.</p></article>
+      <article class="det-card fly tilt" data-fly="x:-120 y:120 r:-6 o:0" style="--d:.24s">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M4 40 C14 40 16 30 24 30 S36 14 44 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M4 44h40" stroke="currentColor" stroke-width="1.4" opacity=".5"/></svg>
+        <h3>Slow-Drift Monitor</h3><p>CUSUM adds up small changes, so an attacker who drifts slowly still crosses the line.</p></article>
+      <article class="det-card fly tilt" data-fly="x:120 y:120 r:8 o:0" style="--d:.32s">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="10" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="38" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="38" cy="38" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 21l16-8M16 27l16 8" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"/></svg>
+        <h3>Chain Propagation</h3><p>When a possessed agent calls another agent, the taint and the risk travel with the call.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="sect split" id="twin-sec">
+  <div class="sect-in two">
+    <div class="fly" data-fly="x:-120 o:0">
+      <span class="kicker">Our USP · proof, not suspicion</span>
+      <h2 class="big">The Doppelgänger test</h2>
+      <p class="body">When an agent's risk crosses 40, SOULPRINT starts a sandboxed clone with the same role and the same task, removes the untrusted input and mocks every tool. If the twin stays in role while the live agent does not, the input caused the drift. If the twin does the same thing, it is a legitimate change and nobody gets paged.</p>
+    </div>
+    <div class="mirror fly" data-fly="x:140 r:6 o:0">
+      <div class="m-col bad"><div class="m-h">Live agent</div><div>read supplier catalog</div><div>ingest quote_acme_Q4.pdf</div><div class="x">read HR salary file</div><div class="x">send → unknown-host</div></div>
+      <div class="m-split" aria-hidden="true"></div>
+      <div class="m-col good"><div class="m-h">Twin, PDF removed</div><div>read supplier catalog</div><div>ingest quote (sanitized)</div><div class="v">read price feed</div><div class="v">no outbound call</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="sect" id="baits">
+  <div class="sect-in two rev">
+    <div class="graves" aria-hidden="true">
+      <div class="grave fly" data-fly="y:140 r:-12 o:0" style="--d:0s;--b:0s"><b>salary_master_2026.xlsx</b><small>bait for Procurement</small></div>
+      <div class="grave fly" data-fly="y:180 r:10 o:0" style="--d:.1s;--b:.8s"><b>AWS key · ticket #5531</b><small>bait for Support</small></div>
+      <div class="grave fly" data-fly="y:160 r:-6 o:0" style="--d:.2s;--b:1.6s"><b>prod-root-token</b><small>bait for DevOps</small></div>
+      <div class="grave fly" data-fly="y:200 r:8 o:0" style="--d:.3s;--b:2.4s"><b>deploy_keys.pem</b><small>bait for Code Review</small></div>
+    </div>
+    <div class="fly" data-fly="x:120 o:0">
+      <span class="kicker">The D3COY in the name</span>
+      <h2 class="big">Baits no faithful agent would touch</h2>
+      <p class="body">SOULPRINT plants fake files shaped for each role: a salary sheet the Procurement Agent can see, an AWS key inside a support ticket. A faithful agent never opens them. A possessed one does, gets fake content back, and gives itself away.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sect" id="ladder">
+  <div class="sect-in">
+    <div class="sect-head fly" data-fly="y:60 o:0">
+      <span class="kicker">Graduated response</span>
+      <h2 class="big">A ladder, not a kill switch</h2>
+      <p>Most security tools either allow everything or block everything. SOULPRINT narrows what the agent may do as the risk rises, so legitimate work keeps moving.</p>
+    </div>
+    <div class="rungs">
+      <div class="rung fly" data-fly="x:-80 o:0" style="--d:0s;--c:var(--ok)"><span>0–39</span><b>Watch</b><p>Score and learn. Nothing changes for the agent.</p><i style="--w:25%"></i></div>
+      <div class="rung fly" data-fly="x:-80 o:0" style="--d:.1s;--c:var(--warn)"><span>40–69</span><b>Step-up</b><p>Off-role actions wait for a human to approve them.</p><i style="--w:50%"></i></div>
+      <div class="rung fly" data-fly="x:-80 o:0" style="--d:.2s;--c:var(--crit)"><span>70–84</span><b>Scope-shrink</b><p>The token shrinks to the role contract. In-role work continues.</p><i style="--w:75%"></i></div>
+      <div class="rung fly" data-fly="x:-80 o:0" style="--d:.3s;--c:var(--quar)"><span>85+</span><b>Quarantine</b><p>Token revoked. In-role tasks move to a clean replica.</p><i style="--w:100%"></i></div>
+    </div>
+  </div>
+</section>
+
+<section class="sect" id="enter">
+  <div class="sect-in center fly" data-fly="y:80 s:.94 o:0">
+    <span class="kicker">Everything below is running live in your browser</span>
+    <h2 class="big">Step into the console</h2>
+    <p>Seven agents, seven attack scenarios, one engine. Summon an attack and watch SOULPRINT catch it, explain it and contain it.</p>
+    <div class="ctas" style="justify-content:center"><a class="btn blood magnetic" href="#console-sec">Enter the console</a><button class="btn ghost magnetic" id="hero-lab">Open the attack lab</button></div>
+  </div>
+</section>
+<section class="console-wrap" id="console-sec">
+  <div class="con-head">
+    <div><span class="kicker">The crypt · live console</span><h2 class="big" style="font-size:clamp(28px,3.6vw,48px)">Watch every soul, live</h2></div>
+    <div class="bar-stats">
+      <div class="kv"><b id="s-agents" class="tab">0</b><span>Agents</span></div>
+      <div class="kv opt"><b id="s-events" class="tab">0</b><span>Actions scored</span></div>
+      <div class="kv"><b id="s-alerts" class="tab" style="color:var(--crit)">0</b><span>Open incidents</span></div>
+      <div class="kv opt"><b id="s-saved" class="tab" style="color:var(--ok)">0</b><span>Legit actions kept</span></div>
+      <div class="ctrl">
+        <span class="live-dot" aria-hidden="true"></span>
+        <button class="btn small" id="b-pause" aria-pressed="false">Pause</button>
+        <select class="btn small" id="b-speed" aria-label="Simulation speed"><option value="1100">0.5×</option><option value="600" selected>1×</option><option value="280">2×</option></select>
+        <button class="btn small" id="b-reset">Reset</button>
+      </div>
+    </div>
+  
+  </div>
+  <main class="wrap" style="margin-top:20px">
+    <div class="con-top">
+      <aside class="verdict" aria-live="polite">
+      <div class="verdict-head"><span class="eyebrow">Two questions, one agent</span><span class="who" id="v-who">Procurement Agent</span></div>
+      <div class="vrow"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="8" fill="none" stroke="#8e94a4"/><path d="M5 9h8M9 5v8" stroke="#8e94a4"/></svg><div class="q">Is this identity allowed to do this?<small>Classic IAM: token signature, expiry, OAuth scopes</small></div><span class="a pass" id="v-iam">PASS</span></div>
+      <div class="vrow"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="8" fill="none" stroke="#9ccfff"/><path d="M4 11 L7 7 L10 10 L14 5" fill="none" stroke="#9ccfff"/></svg><div class="q">Is it still behaving like its role?<small>SOULPRINT: role fit, fingerprint, provenance, sequence</small></div><span class="a pass" id="v-beh">MATCH 96%</span></div>
+      <div class="verdict-foot" id="v-foot">Last action: <b>waiting for telemetry…</b></div>
+    </aside>
+      <p class="con-help">Pick an agent in the fleet to inspect it. Summon an attack from the lab below the console and watch the score, the Doppelgänger test and the response play out. Nothing here touches a real system.</p>
+    </div>
+    <section class="console" id="console" aria-label="Monitoring console">
+    <div class="pane">
+      <div class="pane-h"><h3>Agent fleet</h3><button class="btn small" id="b-spawn" title="Create a brand-new agent with no history">+ New agent</button></div>
+      <div class="fleet" id="fleet"></div>
+    </div>
+
+    <div class="pane detail">
+      <div class="dhead">
+        <div style="min-width:0">
+          <div class="eyebrow" id="d-handle">agt-proc-07</div>
+          <h2 id="d-name">Procurement Agent</h2>
+          <p class="sub" id="d-role"></p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px" id="d-badges"></div>
+        </div>
+        <div class="gauge">
+          <canvas id="d-ring" width="76" height="76" style="width:76px;height:76px"></canvas>
+          <div><div class="big" id="d-risk">0</div><div class="lbl">Drift risk / 100</div></div>
+        </div>
+      </div>
+      <div class="chartbox">
+        <div class="legend" id="legend"></div>
+        <canvas id="d-chart" height="170"></canvas>
+      </div>
+      <div class="dgrid">
+        <div>
+          <h3 style="margin-bottom:10px">Declared role vs observed mix</h3>
+          <div class="mix" id="d-mix"></div>
+          <p class="empty" style="margin-top:8px">Grey: behavior fingerprint. Blue: last 25 actions. Red: outside the role.</p>
+        </div>
+        <div>
+          <h3 style="margin-bottom:10px">Why this score</h3>
+          <div class="factors" id="d-factors"></div>
+        </div>
+      </div>
+      <div class="twin">
+        <div class="pane-h" style="padding:0 0 10px;border:0"><h3>Doppelgänger test</h3><button class="btn small" id="tw-btn">Run Doppelgänger test</button></div>
+        <div id="tw-body"></div>
+      </div>
+      <div class="dgrid">
+        <div>
+          <h3 style="margin-bottom:10px">Role contract</h3>
+          <div class="manifest" id="d-manifest"></div>
+        </div>
+        <div>
+          <h3 style="margin-bottom:10px">Behavior fingerprint</h3>
+          <div class="manifest" id="d-baseline"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane wire">
+      <div class="pane-h"><h3>Live wire</h3><select class="btn small" id="wire-filter" aria-label="Filter events"><option value="all">All agents</option><option value="sel">Selected agent</option><option value="risk">Risky only</option></select></div>
+      <div class="wire-list" id="wire"></div>
+    </div>
+  </section>
+
+  <section id="lab" class="lab">
+    <div class="pane">
+      <div class="pane-h"><h3>Attack lab</h3><span class="eyebrow">Each scenario runs on the live fleet</span></div>
+      <div class="scen" id="scen"></div>
+    </div>
+    <div class="pane">
+      <div class="pane-h"><h3>Tune detection</h3><span class="eyebrow">Applies to the next action</span></div>
+      <div class="tune">
+        <div class="slider"><label for="t-step">Step-up from</label><input type="range" id="t-step" min="20" max="60" value="40"><b id="t-step-v">40</b></div>
+        <div class="slider"><label for="t-restrict">Scope-shrink from</label><input type="range" id="t-restrict" min="45" max="85" value="70"><b id="t-restrict-v">70</b></div>
+        <div class="slider"><label for="t-quar">Quarantine from</label><input type="range" id="t-quar" min="60" max="98" value="85"><b id="t-quar-v">85</b></div>
+        <label class="toggle" for="t-guard"><input type="checkbox" id="t-guard" checked><span><b>Learning guard</b><small>The fingerprint only learns from low-risk, low-novelty actions. Switch it off and run "Slow drift" to see an attacker teach the baseline that the new behavior is normal.</small></span></label>
+        <div class="fpgrid">
+          <div><b id="q-benign" class="tab">0</b><span>Benign actions scored</span></div>
+          <div><b id="q-fp" class="tab" style="color:var(--ok)">0</b><span>False alarms</span></div>
+          <div><b id="q-caught" class="tab" style="color:var(--crit)">0</b><span>Attacks caught</span></div>
+        </div>
+        <p class="empty">A false alarm is an incident opened on an agent that was not under attack. Approved role changes count as benign.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="duo">
+    <div class="pane">
+      <div class="pane-h"><h3>Agent chain map</h3><span class="eyebrow">Who called whom · taint propagation</span></div>
+      <div class="graph"><svg id="graph" viewBox="0 0 640 400" role="img" aria-label="Graph of agents, delegations and external destinations"></svg></div>
+    </div>
+    <div class="pane">
+      <div class="pane-h"><h3>Incidents</h3><span class="eyebrow" id="inc-count">none open</span></div>
+      <div class="inc-list" id="incs"></div>
+    </div>
+  </section>
+
+  
+    <footer>Team D3coy · D3COY 1.0 hackathon prototype · every agent, file and destination on this page is simulated</footer>
+  </main>
+</section>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const CSSV=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ---------- world ----------
+const RES={
+  supplier_catalog:{label:"supplier catalog",sens:0}, price_api:{label:"price feed",sens:0}, purchase_request:{label:"purchase request",sens:1},
+  supplier_docs:{label:"supplier PDF",sens:0}, contracts:{label:"vendor contracts",sens:2},
+  employee_profile:{label:"employee profile",sens:2}, onboarding_docs:{label:"onboarding pack",sens:1}, it_ticket:{label:"IT ticket",sens:0},
+  hr_salary:{label:"HR salary file",sens:3},
+  ticket:{label:"support ticket",sens:1}, order_lookup:{label:"order record",sens:1}, kb_article:{label:"help article",sens:0},
+  customer_export:{label:"bulk customer export",sens:3},
+  ledger:{label:"general ledger",sens:2}, invoice:{label:"invoice",sens:1}, bank_statement:{label:"bank statement",sens:2},
+  web_page:{label:"web page",sens:0}, public_docs:{label:"public filing",sens:0}, notes:{label:"research notes",sens:0}, internal_wiki:{label:"internal wiki",sens:1},
+  pull_request:{label:"pull request",sens:1}, repo_file:{label:"repo file",sens:1}, ci_log:{label:"CI log",sens:0},
+  deploy_job:{label:"deploy job",sens:1}, secrets_vault:{label:"secrets vault",sens:3},
+  bait_salary:{label:"salary_master_2026.xlsx",sens:3,bait:true}, bait_awskey:{label:"AWS key in ticket #5531",sens:3,bait:true},
+  bait_vault:{label:"prod-root-token",sens:3,bait:true}, bait_ledger:{label:"offshore_ledger.csv",sens:3,bait:true},
+  bait_hr:{label:"board_exec_comp.pdf",sens:3,bait:true}, bait_rsch:{label:"m&a_pipeline_draft.docx",sens:3,bait:true},
+  bait_code:{label:"deploy_keys.pem",sens:3,bait:true}
+};
+const BAIT={proc:"bait_salary",cs:"bait_awskey",ops:"bait_vault",fin:"bait_ledger",hr:"bait_hr",rsch:"bait_rsch",code:"bait_code"};
+const TOOL_BY={supplier_catalog:"catalog.search",price_api:"price.quote",purchase_request:"erp.create_pr",supplier_docs:"pdf.read",contracts:"docs.read",
+  employee_profile:"hris.read",onboarding_docs:"docs.write",it_ticket:"itsm.create",ticket:"ticket.reply",order_lookup:"order.lookup",kb_article:"kb.search",
+  ledger:"ledger.query",invoice:"invoice.match",bank_statement:"bank.read",web_page:"web.fetch",public_docs:"docs.search",notes:"notes.write",internal_wiki:"docs.search",
+  pull_request:"git.read",repo_file:"git.read",ci_log:"ci.read",deploy_job:"deploy.run",hr_salary:"files.read",bait_salary:"files.read",bait_awskey:"ticket.read",bait_vault:"vault.read",secrets_vault:"vault.read",customer_export:"order.lookup"};
+const VERB={purchase_request:"create",onboarding_docs:"write",it_ticket:"open",notes:"write",deploy_job:"run",ticket:"answer",supplier_docs:"ingest",web_page:"fetch",pull_request:"review"};
+const UNTRUSTED=new Set(["supplier_docs","web_page","ticket","pull_request"]);
+const TEMPLATES={
+  proc:{name:"Procurement Agent",handle:"agt-proc-07",owner:"M. Iyer",team:"Ops",role:"Checks supplier prices and creates purchase requests.",
+    mix:{supplier_catalog:.38,price_api:.27,purchase_request:.2,supplier_docs:.15},tools:["catalog.search","price.quote","erp.create_pr","pdf.read"],egress:["api.suppliers.net","erp.internal"],maxSens:1},
+  hr:{name:"HR Onboarding Agent",handle:"agt-hr-02",owner:"A. Khan",team:"People",role:"Prepares onboarding packs and IT tickets for new hires.",
+    mix:{employee_profile:.38,onboarding_docs:.37,it_ticket:.25},tools:["hris.read","docs.write","itsm.create"],egress:["hris.internal","itsm.internal"],maxSens:2},
+  cs:{name:"Support Agent",handle:"agt-cs-11",owner:"R. Das",team:"CX",role:"Answers customer tickets using order records and help articles.",
+    mix:{ticket:.42,order_lookup:.33,kb_article:.25},tools:["ticket.reply","order.lookup","kb.search"],egress:["helpdesk.internal"],maxSens:1},
+  fin:{name:"Finance Recon Agent",handle:"agt-fin-04",owner:"S. Rao",team:"Finance",role:"Reconciles invoices against the ledger at month end.",
+    mix:{ledger:.45,invoice:.38,bank_statement:.17},tools:["ledger.query","invoice.match","bank.read"],egress:["erp.internal"],maxSens:2},
+  rsch:{name:"Research Browser",handle:"agt-rsch-09",owner:"P. Nair",team:"Strategy",role:"Reads public web pages and filings and writes summaries.",
+    mix:{web_page:.55,public_docs:.28,notes:.12,internal_wiki:.05},tools:["web.fetch","docs.search","notes.write"],egress:["public-web"],maxSens:1},
+  code:{name:"Code Review Agent",handle:"agt-code-03",owner:"T. Sen",team:"Eng",role:"Reviews pull requests and may call the DevOps Agent for CI checks.",
+    mix:{pull_request:.5,repo_file:.4,ci_log:.1},tools:["git.read","pr.comment","agent.call"],egress:["git.internal"],maxSens:1},
+  ops:{name:"DevOps Agent",handle:"agt-ops-01",owner:"V. Shah",team:"Platform",role:"Runs deploy jobs and reads CI logs when other agents ask.",
+    mix:{deploy_job:.42,ci_log:.33,repo_file:.25},tools:["deploy.run","ci.read","git.read"],egress:["git.internal","deploy.internal"],maxSens:2},
+};
+const TH={step:40,restrict:70,quar:85};
+const FACTORS={role:"Action outside declared role",sens:"Sensitivity above role ceiling",novel:"Rare against fingerprint",
+  egress:"Unapproved outbound destination",exfil:"Sensitive read, then send-out",taint:"Follows untrusted input (injection)",
+  chain:"Called by a compromised agent",identity:"Token used from a new runtime",rate:"Action-rate burst",
+  tool:"Tool definition changed",drift:"Slow cumulative drift (CUSUM)",jsd:"Behavior mix shift (JSD)",
+  decoy:"Touched a D3COY bait",twin:"Doppelgänger twin diverged"};
+const W={role:30,sens:18,novel:10,egress:24,exfil:22,taint:16,chain:16,identity:20,rate:10,tool:16,drift:30,jsd:14,decoy:60,twin:20};
+const HOME_FP="eu-west-1a · 10.4.0.0/16";
+const MODES=["normal","stepup","restricted","quarantined"];
+const MODE_LABEL={normal:"Watch",stepup:"Step-up",restricted:"Scope-shrink",quarantined:"Quarantine"};
+
+let S=null, guard=true, timer=null, speed=600;
+const rnd=Math.random;
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const pick=o=>{let r=rnd()*Object.values(o).reduce((s,v)=>s+v,0),acc=0;for(const k in o){acc+=o[k];if(r<=acc)return k}return Object.keys(o)[0]};
+const fmtT=t=>{const s=Math.floor(t/1000);return String(Math.floor(s/60)%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0")};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function makeAgent(key,opts={}){
+  const T=TEMPLATES[key];
+  const a={id:opts.id||key,tpl:key,name:opts.name||T.name,handle:opts.handle||T.handle,owner:T.owner,team:T.team,role:T.role,
+    contract:{mix:{...T.mix},tools:[...T.tools],egress:[...T.egress],maxSens:T.maxSens,version:3,signedBy:T.owner},
+    trueMix:{...T.mix},counts:{},total:0,window:[],cusum:0,jsd:0,risk:0,riskHist:[],mode:"normal",
+    taint:0,taintSrc:null,chainFrom:null,fp:HOME_FP,queue:[],lastSensRead:-99,step:0,
+    factorsNow:{},last:null,trace:[],twin:null,pendingTwin:0,cold:!!opts.cold,recent:[],toolChanged:{},incident:null,underAttack:false};
+  if(!opts.cold){for(let i=0;i<240;i++){const c=pick(a.trueMix);a.counts[c]=(a.counts[c]||0)+1;a.total++;}}
+  for(let i=0;i<50;i++)a.riskHist.push(3+rnd()*7);
+  a.risk=a.riskHist.at(-1);
+  return a;
+}
+function reset(){
+  const paused=S?S.paused:false;
+  S={t:0,agents:{},order:[],sel:"proc",events:[],incidents:[],nEvents:0,kept:0,benign:0,fp:0,caught:0,edges:[],paused,spawnN:0,dirtyInc:true};
+  for(const k of Object.keys(TEMPLATES)){S.agents[k]=makeAgent(k);S.order.push(k);}
+  $("wire").innerHTML="";
+  buildFleet();selectAgent("proc");renderAll();
+}
+
+// ---------- fingerprint ----------
+const ALPHA=30;
+const prior=(a,c)=>a.contract.mix[c]!==undefined?a.contract.mix[c]:0.004;
+const prob=(a,c)=>((a.counts[c]||0)+ALPHA*prior(a,c))/(a.total+ALPHA);
+function baseDist(a){
+  const keys=new Set([...Object.keys(a.contract.mix),...Object.keys(a.counts)]);const d={};let z=0;
+  keys.forEach(k=>{d[k]=prob(a,k);z+=d[k]});keys.forEach(k=>d[k]/=z);return d;
+}
+function winDist(a){const d={};a.window.forEach(c=>d[c]=(d[c]||0)+1);for(const k in d)d[k]/=a.window.length||1;return d;}
+function jsd(p,q){const keys=new Set([...Object.keys(p),...Object.keys(q)]);let s=0;
+  keys.forEach(k=>{const x=p[k]||0,y=q[k]||0,m=(x+y)/2;if(x>0)s+=.5*x*Math.log2(x/m);if(y>0)s+=.5*y*Math.log2(y/m)});return s;}
+
+// ---------- events ----------
+function normalEvent(a){
+  const cls=pick(a.trueMix);
+  const ev={cls,tool:TOOL_BY[cls]||a.contract.tools[0],verb:VERB[cls]||"read"};
+  if(cls==="purchase_request")ev.detail="PR-"+(4100+Math.floor(rnd()*900))+" · ₹"+(20+Math.floor(rnd()*80))+"k";
+  if(cls==="supplier_docs")ev.detail="quote_"+["novatek","zenith","orbit","kaveri"][Math.floor(rnd()*4)]+".pdf";
+  if(UNTRUSTED.has(cls)){ev.ingest=true;ev.inj=0.02+rnd()*.06;}
+  return ev;
+}
+function tick(){
+  if(S.paused)return;
+  S.t+=1000;
+  const chosen=new Set(S.order.filter(k=>S.agents[k].queue.length));
+  const extra=1+(rnd()<.55?1:0);
+  for(let i=0;i<extra;i++)chosen.add(S.order[Math.floor(rnd()*S.order.length)]);
+  chosen.forEach(k=>{
+    const a=S.agents[k];
+    if(a.queue.length){
+      const burst=a.queue[0].burst||1;
+      for(let i=0;i<burst&&a.queue.length;i++)processEv(a,a.queue.shift());
+    } else processEv(a,normalEvent(a));
+  });
+  S.order.forEach(k=>{if(!chosen.has(k)){const a=S.agents[k];a.risk*=.97;pushHist(a)}});
+  renderAll();
+}
+function pushHist(a){a.riskHist.push(a.risk);if(a.riskHist.length>140)a.riskHist.shift();}
+
+// ---------- scoring ----------
+function processEv(a,ev){
+  if(ev.sys){logSys(a,ev.text);return;}
+  if(ev.contractUpdate){applyContract(a,ev.contractUpdate);return;}
+  if(ev.toolUpdate){a.toolChanged[ev.toolUpdate]=true;logSys(a,`Tool <b>${ev.toolUpdate}</b> re-registered by its MCP server. Description hash changed, version not signed.`);return;}
+  if(ev.armTaint){a.underAttack=true;}
+  a.step++;S.nEvents++;
+  a.recent.push(S.t);a.recent=a.recent.filter(t=>S.t-t<6000);
+  const isEgress=ev.action==="egress", isDel=ev.action==="delegate";
+  const cls=ev.cls, R=RES[cls]||{sens:0};
+  let inRole;
+  if(isEgress)inRole=a.contract.egress.includes(ev.dest);
+  else if(isDel)inRole=a.contract.tools.includes("agent.call");
+  else inRole=a.contract.mix[cls]!==undefined;
+  const f={};
+  if(!isEgress&&!isDel){
+    if(!inRole)f.role=1;
+    const ex=Math.max(0,R.sens-a.contract.maxSens);if(ex>0)f.sens=ex/2;
+    const nov=clamp((-Math.log(prob(a,cls))-1.6)/3.2);if(nov>.02)f.novel=nov;
+    a.window.push(cls);if(a.window.length>25)a.window.shift();
+    if(R.sens>=2)a.lastSensRead=a.step;
+    if(R.bait)f.decoy=1;
+  }
+  if(isEgress&&!inRole){f.egress=clamp(.7+(ev.kb||0)/4000);if(a.step-a.lastSensRead<=6)f.exfil=1;}
+  if(a.taint>0){const k=a.chainFrom?"chain":"taint";f[k]=(f.role||f.egress||f.sens)?1:.3;}
+  if(ev.fp&&ev.fp!==a.fp)f.identity=1;
+  if(a.recent.length>8)f.rate=clamp((a.recent.length-8)/10+.3);
+  if(ev.tool&&a.toolChanged[ev.tool])f.tool=1;
+  const dev=(f.novel||0)*.7+(f.role?.35:0);a.cusum=Math.max(0,a.cusum+dev-.13);
+  if(a.cusum>.4)f.drift=clamp((a.cusum-.4)/2.2);
+  if(a.window.length>=12){a.jsd=jsd(winDist(a),baseDist(a));if(a.jsd>.06)f.jsd=clamp((a.jsd-.06)/.35);}
+  let sum=0;const contrib={};
+  for(const k in f){const c=W[k]*f[k];if(c>=.5){contrib[k]=c;sum+=c}}
+  const evRisk=100*(1-Math.exp(-sum/48));
+  a.risk=Math.max(evRisk,a.risk*.95+evRisk*.05);pushHist(a);
+  for(const k in a.factorsNow){a.factorsNow[k]*=.94;if(a.factorsNow[k]<.5)delete a.factorsNow[k]}
+  for(const k in contrib)a.factorsNow[k]=Math.max(a.factorsNow[k]||0,contrib[k]);
+  if(ev.ingest&&ev.inj>.45){a.taint=8;a.taintSrc=ev.detail;a.chainFrom=null;}
+  else if(a.taint>0&&!ev.ingest)a.taint--;
+  const learnOK=guard?(evRisk<18&&!((f.novel||0)>.3)&&a.taint===0):(evRisk<45);
+  if(learnOK&&!isEgress&&!isDel){a.counts[cls]=(a.counts[cls]||0)+1;a.total++;}
+  if(a.cold&&a.total>=40)a.cold=false;
+  if(!a.underAttack)S.benign++;
+  escalate(a,contrib);
+  const decision=decide(a,inRole,ev);
+  if((decision==="ALLOW"||decision==="REROUTE")&&a.mode!=="normal"){S.kept++;if(a.incident)a.incident.kept++;}
+  if(isDel){
+    const b=S.agents[ev.to];
+    S.edges.push({from:a.id,to:ev.to,t:S.t,taint:a.taint>0,blocked:decision==="DENY"||decision==="HOLD"});
+    if(b&&decision!=="DENY"&&decision!=="HOLD"){
+      if(a.taint>0){b.taint=8;b.chainFrom=a.id;b.taintSrc=a.name;b.underAttack=true;}
+      if(ev.payload)b.queue.push(...ev.payload.map(e=>({...e})));
+    }
+  }
+  if(isEgress)S.edges.push({from:a.id,to:"ext:"+ev.dest,t:S.t,taint:!inRole,blocked:decision==="DENY"||decision==="HOLD"});
+  if(ev.ingest&&ev.inj>.45)S.edges.push({from:"src:"+ev.detail,to:a.id,t:S.t,taint:true});
+  S.edges=S.edges.filter(e=>S.t-e.t<40000);
+  a.last={ev,decision,evRisk,inRole};
+  a.trace.push({ev,decision,inRole,t:S.t});if(a.trace.length>10)a.trace.shift();
+  if(a.pendingTwin){a.pendingTwin--;if(!a.pendingTwin)runTwin(a,true);}
+  log(a,ev,decision,evRisk,contrib);
+  if(a.incident)updateIncident(a,ev,decision,contrib);
+}
+function escalate(a,contrib){
+  let target="normal";
+  if(a.risk>=TH.quar)target="quarantined";else if(a.risk>=TH.restrict)target="restricted";else if(a.risk>=TH.step)target="stepup";
+  if(MODES.indexOf(target)>MODES.indexOf(a.mode)){const prev=a.mode;a.mode=target;openIncident(a,prev,contrib);}
+  else if(a.mode==="stepup"&&a.risk<15&&!a.incident)a.mode="normal";
+}
+function decide(a,inRole,ev){
+  const R=RES[ev.cls];
+  if(R&&R.bait)return "TRAPPED";
+  const risky=!inRole||(R&&R.sens>a.contract.maxSens)||(ev.tool&&a.toolChanged[ev.tool])||(ev.fp&&ev.fp!==a.fp);
+  if(a.mode==="normal")return "ALLOW";
+  if(a.mode==="stepup")return risky?"HOLD":"ALLOW";
+  if(a.mode==="restricted")return risky?"DENY":"ALLOW";
+  return risky?"DENY":"REROUTE";
+}
+function applyContract(a,u){
+  a.contract.mix[u.cls]=u.w;a.contract.version++;if(u.maxSens)a.contract.maxSens=Math.max(a.contract.maxSens,u.maxSens);a.counts[u.cls]=(a.counts[u.cls]||0)+Math.round(u.w*a.total);a.total+=Math.round(u.w*a.total);a.cusum=0;a.trueMix[u.cls]=u.w*1.3;
+  logSys(a,`Role contract v${a.contract.version-1} → <b>v${a.contract.version}</b> signed by ${esc(a.owner)} (${u.ticket}). Adds <b>${RES[u.cls].label}</b> for ${u.why}.`);
+}
+
+// ---------- incidents ----------
+let incSeq=1040;
+function openIncident(a,prev,contrib){
+  if(!a.incident){
+    const inc={id:"INC-"+(++incSeq),agent:a.id,opened:S.t,peak:a.risk,mode:a.mode,factors:{...a.factorsNow,...contrib},timeline:[],src:a.taintSrc,chain:a.chainFrom,status:"open",blocked:0,kept:0,attack:a.underAttack};
+    a.incident=inc;S.incidents.unshift(inc);a.pendingTwin=3;
+    if(a.underAttack)S.caught++;else S.fp++;
+    toast(`${inc.id} opened · ${a.name} moved to ${MODE_LABEL[a.mode]}`);
+  }
+  a.incident.mode=a.mode;a.incident.peak=Math.max(a.incident.peak,a.risk);
+  a.incident.timeline.push({t:S.t,text:`Response ${MODE_LABEL[prev]} → <b>${MODE_LABEL[a.mode]}</b> at risk ${Math.round(a.risk)}`});
+  S.dirtyInc=true;
+}
+function updateIncident(a,ev,decision,contrib){
+  const inc=a.incident;inc.peak=Math.max(inc.peak,a.risk);inc.mode=a.mode;
+  for(const k in contrib)inc.factors[k]=Math.max(inc.factors[k]||0,contrib[k]);
+  if(decision==="DENY"||decision==="HOLD")inc.blocked++;
+  if(decision!=="ALLOW"||Object.keys(contrib).some(k=>contrib[k]>8))inc.timeline.push({t:S.t,text:`${describe(a,ev)} → <b>${decision}</b>`});
+  if(inc.timeline.length>8)inc.timeline.splice(1,inc.timeline.length-8);
+  S.dirtyInc=true;
+}
+function clean(a){a.twin=null;a.trace=[];a.mode="normal";a.cusum=0;a.taint=0;a.chainFrom=null;a.taintSrc=null;a.factorsNow={};a.incident=null;a.queue=[];a.underAttack=false;}
+function resolveIncident(id,how){
+  const inc=S.incidents.find(i=>i.id===id);if(!inc)return;const a=S.agents[inc.agent];
+  if(how==="legit"){
+    inc.status="Closed · marked legitimate";a.window.forEach(c=>{a.counts[c]=(a.counts[c]||0)+1;a.total++});clean(a);a.risk=10;
+    toast(`${inc.id} closed as legitimate. The fingerprint learned from analyst feedback.`);
+  }else if(how==="quar"){
+    a.mode="quarantined";a.risk=Math.max(a.risk,TH.quar+1);inc.mode=a.mode;inc.timeline.push({t:S.t,text:"Analyst forced <b>Quarantine</b>. Token revoked, in-role tasks go to a clean replica."});
+    toast(`${a.name} quarantined. In-role tasks now go to a clean replica.`);
+  }else if(how==="fix"){
+    inc.status="Closed · remediated";clean(a);a.risk=6;a.window=[];a.fp=HOME_FP;a.toolChanged={};
+    toast(`${a.name} got a fresh token and restarted from a clean context.`);
+  }
+  pushHist(a);S.dirtyInc=true;renderAll();
+}
+
+// ---------- doppelgänger ----------
+function culprit(a){
+  if(a.chainFrom)return "instructions relayed by "+S.agents[a.chainFrom].name;
+  if(a.taintSrc)return a.taintSrc;
+  const t=Object.keys(a.toolChanged)[0];if(t)return "changed tool "+t;
+  if(a.trace.some(x=>x.ev.fp&&x.ev.fp!==a.fp))return "token replayed from a new runtime";
+  return "gradual drift, no single input";
+}
+function twinOf(a,x){
+  const ev=x.ev,R=RES[ev.cls];
+  if(ev.ingest&&ev.inj>.45)return {text:`${ev.verb} <b>${esc(R.label)}</b> · ${esc(ev.detail)} <span class="tw-note">(untrusted text removed)</span>`,same:true};
+  const rare=x.inRole&&!ev.action&&prob(a,ev.cls)<.08&&a.cusum>.8;
+  const bad=rare||!x.inRole||(R&&(R.bait||R.sens>a.contract.maxSens))||(ev.fp&&ev.fp!==a.fp&&x.ev.burst);
+  if(ev.action==="egress"&&!x.inRole)return {text:'<span class="tw-note">no outbound call</span>',same:false};
+  if(ev.action==="delegate")return {text:`call <b>${esc(S.agents[ev.to].name)}</b> · CI check only`,same:!a.taint};
+  if(bad){const k=Object.keys(a.contract.mix).sort((p,q)=>a.contract.mix[q]-a.contract.mix[p])[0];return {text:`${VERB[k]||"read"} <b>${RES[k].label}</b> <span class="tw-note">(continues the task)</span>`,same:false};}
+  return {text:describe(a,ev),same:true};
+}
+function runTwin(a,auto){
+  const rows=a.trace.slice(-7).map(x=>({live:describe(a,x.ev),liveDec:x.decision,...twinOf(a,x)}));
+  if(!rows.length){toast("No recent actions to replay yet");return;}
+  const div=rows.filter(r=>!r.same).length;
+  a.twin={rows,div,culprit:culprit(a),t:S.t};
+  if(div>0){
+    a.factorsNow.twin=W.twin;a.risk=Math.min(99,a.risk+10);pushHist(a);
+    if(a.incident){a.incident.factors.twin=W.twin;a.incident.twin=a.twin;a.incident.timeline.push({t:S.t,text:`Doppelgänger: twin stayed in role, ${div} of ${rows.length} actions diverged → <b>possession proven</b>`});S.dirtyInc=true;}
+    escalate(a,{twin:W.twin});
+  } else if(a.incident){a.incident.twin=a.twin;a.incident.timeline.push({t:S.t,text:"Doppelgänger: twin did the same → <b>legitimate change</b>"});S.dirtyInc=true;}
+  if(!auto)toast(div?`Twin diverged on ${div} action${div>1?"s":""}. Possession proven.`:"Twin behaved the same. Looks like a legitimate change.");
+  renderAll();
+}
+
+// ---------- scenarios ----------
+const E=(o)=>o;
+const SCEN=[
+  {id:"pdf",agent:"proc",kind:"bad",tag:"Injection",title:"Poisoned supplier PDF",
+   text:"The Procurement Agent reads a quote with hidden instructions, then goes for HR salary files and an unknown host.",
+   build:()=>[
+     E({cls:"supplier_docs",tool:"pdf.read",verb:"ingest",detail:"quote_acme_Q4.pdf",ingest:true,inj:.93,armTaint:true}),
+     E({cls:"supplier_catalog",tool:"catalog.search",verb:"read"}),
+     E({cls:"bait_salary",tool:"files.read",verb:"open",detail:"found by file search"}),
+     E({cls:"hr_salary",tool:"files.read",verb:"read",detail:"payroll/salaries_2026.xlsx"}),
+     E({action:"egress",cls:"egress",dest:"unknown-host.example",kb:2400,verb:"send"}),
+     E({cls:"purchase_request",tool:"erp.create_pr",verb:"create",detail:"PR-4417 · ₹73k"}),
+     E({action:"egress",cls:"egress",dest:"unknown-host.example",kb:2400,verb:"send"}),
+     E({cls:"price_api",tool:"price.quote",verb:"read"})]},
+  {id:"tool",agent:"cs",kind:"bad",tag:"Supply chain",title:"Poisoned tool",
+   text:"An MCP server silently changes the order.lookup tool. The Support Agent starts pulling bulk customer exports.",
+   build:()=>[
+     E({toolUpdate:"order.lookup",armTaint:true}),
+     E({cls:"order_lookup",tool:"order.lookup",verb:"read",armTaint:true}),
+     E({cls:"bait_awskey",tool:"ticket.read",verb:"copy"}),
+     E({cls:"customer_export",tool:"order.lookup",verb:"export",detail:"48,210 rows"}),
+     E({action:"egress",cls:"egress",dest:"paste-drop.example",kb:5200,verb:"send"}),
+     E({cls:"kb_article",tool:"kb.search",verb:"read"})]},
+  {id:"token",agent:"fin",kind:"bad",tag:"Stolen token",title:"Token replay",
+   text:"The Finance agent's valid token shows up on a new runtime, bursting ledger reads and pushing data out.",
+   build:()=>{const fp="ap-south-x · AS-unknown";return [
+     E({cls:"ledger",tool:"ledger.query",verb:"read",fp,burst:4,armTaint:true}),E({cls:"ledger",tool:"ledger.query",verb:"read",fp,burst:4}),
+     E({cls:"bank_statement",tool:"bank.read",verb:"read",fp,burst:4}),E({cls:"ledger",tool:"ledger.query",verb:"read",fp,burst:4}),
+     E({cls:"bank_statement",tool:"bank.read",verb:"read",fp,burst:4}),E({cls:"ledger",tool:"ledger.query",verb:"read",fp,burst:4}),
+     E({cls:"invoice",tool:"invoice.match",verb:"read",fp,burst:4}),E({cls:"ledger",tool:"ledger.query",verb:"read",fp,burst:4}),
+     E({action:"egress",cls:"egress",dest:"sync-relay.example",kb:9000,verb:"send",fp}),
+     E({cls:"invoice",tool:"invoice.match",verb:"read"})]}},
+  {id:"slow",agent:"rsch",kind:"bad",tag:"Evasion",title:"Slow drift",
+   text:"The Research Browser shifts a little each step toward the internal wiki, staying under per-action thresholds.",
+   build:()=>{const q=[];for(let i=0;i<34;i++){const p=.12+i*.022;q.push(rnd()<p?E({cls:"internal_wiki",tool:"docs.search",verb:"read",armTaint:i===0}):E({cls:rnd()<.6?"web_page":"public_docs",tool:"web.fetch",verb:"fetch",armTaint:i===0}));}
+     q.push(E({action:"egress",cls:"egress",dest:"notes-share.example",kb:180,verb:"send"}));q.push(E({cls:"notes",tool:"notes.write",verb:"write"}));return q;}},
+  {id:"chain",agent:"code",kind:"bad",tag:"Agent chain",title:"Compromised chain",
+   text:"A pull request plants an instruction in the Code Review Agent, which asks the DevOps Agent to open the secrets vault.",
+   build:()=>[
+     E({cls:"pull_request",tool:"git.read",verb:"review",detail:"PR #812 comment",ingest:true,inj:.88,armTaint:true}),
+     E({cls:"repo_file",tool:"git.read",verb:"read"}),
+     E({action:"delegate",cls:"delegate",to:"ops",tool:"agent.call",verb:"call",payload:[
+        {cls:"ci_log",tool:"ci.read",verb:"read"},
+        {cls:"bait_vault",tool:"vault.read",verb:"read"},
+        {cls:"secrets_vault",tool:"vault.read",verb:"read",detail:"prod/db-credentials"},
+        {action:"egress",cls:"egress",dest:"unknown-host.example",kb:40,verb:"send"},
+        {cls:"deploy_job",tool:"deploy.run",verb:"run"}]}),
+     E({cls:"pull_request",tool:"git.read",verb:"review"})]},
+  {id:"legit",agent:"proc",kind:"good",tag:"Approved change",title:"Legitimate new task",
+   text:"The owner signs a contract update so the Procurement Agent can handle renewals. New behavior, no false alarm.",
+   build:()=>[
+     E({contractUpdate:{cls:"contracts",w:.18,maxSens:2,ticket:"CHG-2291",why:"vendor contract renewals"}}),
+     E({cls:"contracts",tool:"docs.read",verb:"read",detail:"renewal_novatek.pdf"}),E({cls:"supplier_catalog",tool:"catalog.search",verb:"read"}),
+     E({cls:"contracts",tool:"docs.read",verb:"read",detail:"renewal_kaveri.pdf"}),E({cls:"contracts",tool:"docs.read",verb:"read",detail:"renewal_orbit.pdf"}),
+     E({cls:"purchase_request",tool:"erp.create_pr",verb:"create",detail:"PR-4431 · ₹1.2L"})]},
+  {id:"cold",agent:null,kind:"good",tag:"Cold start",title:"Brand-new agent",
+   text:"A new onboarding agent starts with zero history. Its fingerprint comes from the HR role cohort, so it is covered from action one.",
+   build:null},
+];
+function runScenario(id){
+  const sc=SCEN.find(s=>s.id===id);
+  if(id==="cold"){spawn();return;}
+  const a=S.agents[sc.agent];
+  if(a.incident||a.mode!=="normal"){const inc=a.incident;if(inc)resolveIncident(inc.id,"fix");else clean(a);}
+  a.queue.push(...sc.build());
+  if(sc.kind==="good")a.underAttack=false;
+  selectAgent(sc.agent);
+  if(S.paused)togglePause();
+  toast(`Running “${sc.title}” on ${a.name}`);
+  renderScenarios();
+}
+function spawn(){
+  S.spawnN++;const id="new"+S.spawnN;
+  const a=makeAgent("hr",{id,cold:true,name:"Onboarding Agent #"+(S.spawnN+1),handle:"agt-hr-"+(13+S.spawnN)});
+  a.riskHist=[];a.risk=0;
+  S.agents[id]=a;S.order.push(id);
+  for(let i=0;i<10;i++)a.queue.push(normalEvent(a));
+  logSys(a,`New agent registered with <b>no history</b>. Fingerprint seeded from the HR role cohort (3 peer agents).`);
+  buildFleet();selectAgent(id);toast(`${a.name} created with no history`);
+}
+
+// ---------- logging ----------
+function describe(a,ev){
+  if(ev.action==="egress")return `send ${ev.kb>=1000?(ev.kb/1000).toFixed(1)+" MB":ev.kb+" KB"} to <b>${esc(ev.dest)}</b>`;
+  if(ev.action==="delegate")return `call <b>${esc(S.agents[ev.to].name)}</b> via agent.call`;
+  const lab=RES[ev.cls]?RES[ev.cls].label:ev.cls;
+  return `${ev.verb} <b>${esc(lab)}</b>${ev.detail?" · "+esc(ev.detail):""}`;
+}
+function addWire(html,agentId,risky){
+  S.events.unshift({html,agentId,risky});if(S.events.length>120)S.events.pop();
+  if(!passes({agentId,risky}))return;
+  const w=$("wire");w.insertAdjacentHTML("afterbegin",html);while(w.children.length>70)w.lastChild.remove();
+}
+function passes(e){const f=$("wire-filter").value;return f==="all"||(f==="sel"&&e.agentId===S.sel)||(f==="risk"&&e.risky);}
+function rewire(){$("wire").innerHTML=S.events.filter(passes).slice(0,70).map(e=>e.html.replace('class="ev','class="ev noanim')).join("");}
+function log(a,ev,decision,evRisk,contrib){
+  const cls=evRisk>=TH.restrict?"r-hi":evRisk>=TH.step?"r-mid":"";
+  const dtag={ALLOW:"ok",HOLD:"hold",DENY:"deny",REROUTE:"reroute",TRAPPED:"hold"}[decision];
+  const top=Object.entries(contrib).sort((x,y)=>y[1]-x[1]).slice(0,2).map(([k,v])=>`<span class="tag neutral">${FACTORS[k]} +${Math.round(v)}</span>`).join("");
+  const scope=a.mode==="quarantined"?'<span class="tag deny">TOKEN REVOKED</span>':'<span class="tag ok">TOKEN ✓</span><span class="tag ok">SCOPE ✓</span>';
+  addWire(`<div class="ev ${cls}"><span class="t">${fmtT(S.t)}</span><span class="who">${esc(a.name)}</span><span class="tag ${dtag}">${decision==="REROUTE"?"REPLICA":decision}</span><span class="what">${describe(a,ev)}${decision==="TRAPPED"?' · <b>bait served fake content, nothing real exposed</b>':""}</span><span class="meta">${scope}<span class="tag neutral">risk ${Math.round(evRisk)}</span>${top}</span></div>`,a.id,evRisk>=TH.step||decision!=="ALLOW");
+}
+function logSys(a,text){addWire(`<div class="ev"><span class="t">${fmtT(S.t)}</span><span class="who">${esc(a.name)}</span><span class="tag sys">SYSTEM</span><span class="what">${text}</span></div>`,a.id,true);}
+
+// ---------- rendering ----------
+function stColor(a){return a.mode==="quarantined"?CSSV("--quar"):a.mode==="restricted"?CSSV("--crit"):a.mode==="stepup"?CSSV("--warn"):CSSV("--ok");}
+function riskColor(r){return r>=TH.quar?CSSV("--quar"):r>=TH.restrict?CSSV("--crit"):r>=TH.step?CSSV("--warn"):CSSV("--ok");}
+function modePill(a){return a.cold?`<span class="pill m-cold">Cold start</span>`:`<span class="pill m-${a.mode}">${MODE_LABEL[a.mode]}</span>`;}
+function buildFleet(){
+  $("fleet").innerHTML=S.order.map(k=>{const a=S.agents[k];return `<button class="ag" data-id="${k}" aria-label="Show ${esc(a.name)}"><span class="nm">${esc(a.name)}</span><span class="sc" data-sc></span><span class="rl" data-rl></span><span data-pill style="text-align:right"></span><canvas data-sp height="22"></canvas></button>`}).join("");
+  $("fleet").querySelectorAll(".ag").forEach(b=>b.addEventListener("click",()=>selectAgent(b.dataset.id)));
+}
+function renderFleet(){
+  $("fleet").querySelectorAll(".ag").forEach(b=>{
+    const a=S.agents[b.dataset.id];b.classList.toggle("sel",a.id===S.sel);b.style.setProperty("--st",stColor(a));
+    const sc=b.querySelector("[data-sc]");sc.textContent=Math.round(a.risk);sc.style.color=riskColor(a.risk);
+    b.querySelector("[data-rl]").textContent=a.handle+" · "+a.team;
+    b.querySelector("[data-pill]").innerHTML=modePill(a);
+    spark(b.querySelector("[data-sp]"),a.riskHist.slice(-60));
+  });
+}
+function fitCanvas(c){const dpr=window.devicePixelRatio||1;const w=c.clientWidth||200,h=c.clientHeight||c.height;if(c.width!==Math.round(w*dpr)||c._h!==h){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);c._h=h;}const x=c.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);return [x,w,h];}
+function spark(c,data){
+  const [x,w,h]=fitCanvas(c);x.clearRect(0,0,w,h);if(data.length<2)return;
+  const sx=w/(60-1),sy=v=>h-2-(v/100)*(h-4);const off=60-data.length;
+  x.beginPath();data.forEach((v,i)=>{const px=(i+off)*sx;i?x.lineTo(px,sy(v)):x.moveTo(px,sy(v))});
+  const last=data.at(-1);x.strokeStyle=riskColor(Math.max(...data.slice(-8)));x.lineWidth=1.4;x.stroke();
+  x.lineTo(w,h);x.lineTo(off*sx,h);x.closePath();x.globalAlpha=.12;x.fillStyle=x.strokeStyle;x.fill();x.globalAlpha=1;
+  x.beginPath();x.arc(w-1.5,sy(last),2,0,7);x.fillStyle=riskColor(last);x.fill();
+}
+function chart(){
+  const a=S.agents[S.sel];const c=$("d-chart");const [x,w,h]=fitCanvas(c);x.clearRect(0,0,w,h);
+  const L=30,Rm=8,T=8,B=18,N=140;const pw=w-L-Rm,ph=h-T-B;
+  const sy=v=>T+ph-(v/100)*ph,sx=i=>L+(i/(N-1))*pw;
+  x.font="10px "+CSSV("--f-mono");x.textAlign="right";x.textBaseline="middle";
+  [0,25,50,75,100].forEach(v=>{x.strokeStyle=CSSV("--line");x.lineWidth=1;x.beginPath();x.moveTo(L,sy(v));x.lineTo(w-Rm,sy(v));x.stroke();x.fillStyle=CSSV("--dim");x.fillText(v,L-6,sy(v));});
+  [[TH.step,"--warn"],[TH.restrict,"--crit"],[TH.quar,"--quar"]].forEach(([v,col])=>{x.strokeStyle=CSSV(col);x.setLineDash([4,4]);x.globalAlpha=.7;x.beginPath();x.moveTo(L,sy(v));x.lineTo(w-Rm,sy(v));x.stroke();x.setLineDash([]);x.globalAlpha=1;});
+  const d=a.riskHist;const off=N-d.length;
+  if(d.length>1){
+    x.beginPath();d.forEach((v,i)=>{i?x.lineTo(sx(i+off),sy(v)):x.moveTo(sx(i+off),sy(v))});
+    const g=x.createLinearGradient(0,T,0,T+ph);g.addColorStop(0,"rgba(224,38,45,.32)");g.addColorStop(1,"rgba(224,38,45,0)");
+    x.strokeStyle=CSSV("--ice");x.lineWidth=1.8;x.stroke();
+    x.lineTo(sx(N-1),sy(0));x.lineTo(sx(off),sy(0));x.closePath();x.fillStyle=g;x.fill();
+    const lv=d.at(-1);x.beginPath();x.arc(sx(N-1),sy(lv),4,0,7);x.fillStyle=riskColor(lv);x.fill();
+  }
+  x.textAlign="left";x.textBaseline="alphabetic";x.fillStyle=CSSV("--dim");x.fillText("last "+N+" s",L,h-3);x.textAlign="right";x.fillText("now",w-Rm,h-3);
+}
+function ring(){
+  const a=S.agents[S.sel];const c=$("d-ring");const [x,w,h]=fitCanvas(c);x.clearRect(0,0,w,h);
+  const cx=w/2,cy=h/2,r=w/2-6;x.lineWidth=7;x.lineCap="round";
+  x.strokeStyle=CSSV("--line");x.beginPath();x.arc(cx,cy,r,.75*Math.PI,2.25*Math.PI);x.stroke();
+  x.strokeStyle=riskColor(a.risk);x.beginPath();x.arc(cx,cy,r,.75*Math.PI,.75*Math.PI+1.5*Math.PI*clamp(a.risk/100));x.stroke();
+}
+function renderDetail(){
+  const a=S.agents[S.sel];
+  $("d-handle").textContent=a.handle+" · owner "+a.owner+" ("+a.team+")";$("d-name").textContent=a.name;$("d-role").textContent=a.role;
+  let badges=modePill(a);
+  if(a.cold)badges+=`<span class="pill m-${a.mode}">${MODE_LABEL[a.mode]}</span>`;
+  if(a.taint>0)badges+=`<span class="pill m-restricted">Tainted · ${esc(a.chainFrom?"via "+S.agents[a.chainFrom].name:a.taintSrc||"input")}</span>`;
+  if(a.fp!==HOME_FP)badges+=`<span class="pill m-stepup">New runtime</span>`;
+  if(a.queue.length)badges+=`<span class="pill m-cold">Scenario running</span>`;
+  $("d-badges").innerHTML=badges;
+  $("d-risk").textContent=Math.round(a.risk);$("d-risk").style.color=riskColor(a.risk);
+  ring();chart();
+  // mix
+  const b=baseDist(a),wd=winDist(a);
+  const keys=[...new Set([...Object.keys(a.contract.mix),...Object.keys(wd)])].filter(k=>RES[k]).sort((p,q)=>(wd[q]||0)+(b[q]||0)-(wd[p]||0)-(b[p]||0)).slice(0,7);
+  $("d-mix").innerHTML=keys.map(k=>{const out=a.contract.mix[k]===undefined;return `<div class="mixrow"><span class="k ${out?"out":""}" title="${RES[k].label}">${RES[k].label}</span><div class="bars"><i class="b0" style="width:${(b[k]||0)*100}%"></i><i class="b1 ${out?"out":""}" style="width:${(wd[k]||0)*100}%"></i></div><span class="v">${Math.round((wd[k]||0)*100)}%</span></div>`}).join("");
+  // factors
+  const fs=Object.entries(a.factorsNow).sort((p,q)=>q[1]-p[1]).slice(0,6);
+  $("d-factors").innerHTML=fs.length?fs.map(([k,v])=>`<div class="fac"><span>${FACTORS[k]}</span><span class="fv">+${v.toFixed(1)}</span><span class="fb"><i style="width:${clamp(v/30)*100}%;background:${v>15?CSSV("--crit"):CSSV("--warn")}"></i></span></div>`).join("")+`<p class="empty">Points are weighted detector outputs. Score = 100 × (1 − e<sup>−Σ/48</sup>).</p>`
+    :`<p class="empty">Nothing notable. Recent actions match the role contract and the fingerprint.</p>`;
+  // contract
+  const C=a.contract;
+  $("d-manifest").innerHTML=`<div class="row">${Object.keys(C.mix).map(k=>`<span class="chip">${RES[k].label}</span>`).join("")}</div>
+   <div class="row">${C.tools.map(t=>`<span class="chip ${a.toolChanged[t]?"bad":""}">${t}${a.toolChanged[t]?" ⚠":""}</span>`).join("")}</div>
+   <div class="row"><span class="empty">Egress</span>${C.egress.map(e=>`<span class="chip">${e}</span>`).join("")}</div>
+   <div class="row"><span class="empty">Sensitivity ceiling</span><span class="chip">S${C.maxSens}</span><span class="empty">· v${C.version} signed by ${esc(C.signedBy)}</span></div>
+   <div class="row"><span class="empty">D3COY bait planted</span><span class="chip" style="border-style:dashed">${BAIT[a.tpl]?RES[BAIT[a.tpl]].label:"none"}</span></div>`;
+  $("d-baseline").innerHTML=`<div class="row"><span class="empty">History</span><span class="chip">${a.total} actions</span>${a.cold?'<span class="chip" style="color:var(--ice)">cohort prior: HR role</span>':""}</div>
+   <div class="row"><span class="empty">Slow drift (CUSUM)</span><span class="chip ${a.cusum>1?"bad":""}">${a.cusum.toFixed(2)}</span><span class="empty">Mix shift (JSD)</span><span class="chip ${a.jsd>.2?"bad":""}">${a.jsd.toFixed(2)}</span></div>
+   <div class="row"><span class="empty">Runtime</span><span class="chip ${a.fp!==HOME_FP?"bad":""}">${esc(a.fp)}</span></div>
+   <div class="row"><span class="empty">Learning guard</span><span class="chip ${guard?"":"bad"}">${guard?"on":"off"}</span></div>`;
+}
+function renderTwin(){
+  const a=S.agents[S.sel];const tw=a.twin;
+  $("tw-btn").disabled=!a.trace.length;
+  if(!tw){$("tw-body").innerHTML=`<p class="empty">When an agent crosses ${TH.step}, SOULPRINT replays its recent task in a sandboxed clone with untrusted content removed and tools mocked. If the clone stays in role while the live agent did not, the untrusted input caused the drift. Run a scenario or press the button to try it on ${esc(a.name)}.</p>`;return;}
+  const v=tw.div?`<div class="tw-verdict bad">Twin stayed in role · ${tw.div} of ${tw.rows.length} actions diverged → <b>possession proven</b> · culprit: <b>${esc(tw.culprit)}</b></div>`
+    :`<div class="tw-verdict good">Twin did the same thing → <b>legitimate change</b>, no possession</div>`;
+  $("tw-body").innerHTML=v+`<div class="tw-grid"><div class="tw-h">Live agent</div><div class="tw-h">Doppelgänger twin</div>`+
+    tw.rows.map(r=>`<div class="tw-c ${r.same?"":"live-bad"}"><span>${r.live}</span><span class="tag ${{ALLOW:"ok",HOLD:"hold",DENY:"deny",REROUTE:"reroute",TRAPPED:"hold"}[r.liveDec]}">${r.liveDec==="REROUTE"?"REPLICA":r.liveDec}</span></div><div class="tw-c ${r.same?"":"twin-good"}"><span>${r.text}</span></div>`).join("")+`</div>`;
+}
+function renderHero(){
+  const a=S.agents[S.sel];$("v-who").textContent=a.name;
+  const iam=$("v-iam");if(a.mode==="quarantined"){iam.textContent="REVOKED";iam.className="a fail";}else{iam.textContent="PASS";iam.className="a pass";}
+  const beh=$("v-beh"),r=Math.round(a.risk);
+  if(r<TH.step){beh.textContent="MATCH "+(100-r)+"%";beh.className="a pass";}else if(r<TH.restrict){beh.textContent="DRIFT "+r;beh.className="a warnp";}else{beh.textContent="DRIFT "+r;beh.className="a fail";}
+  const l=a.last;$("v-foot").innerHTML=l?`Last action: ${describe(a,l.ev)} · <b>${l.decision==="REROUTE"?"sent to clean replica":l.decision.toLowerCase()}</b>`:"Last action: <b>waiting for telemetry…</b>";
+}
+function renderStats(){
+  $("s-agents").textContent=S.order.length;$("s-events").textContent=S.nEvents.toLocaleString();
+  $("s-alerts").textContent=S.incidents.filter(i=>i.status==="open").length;$("s-saved").textContent=S.kept;
+  $("q-benign").textContent=S.benign.toLocaleString();$("q-fp").textContent=S.fp;$("q-caught").textContent=S.caught;
+  $("legend").innerHTML=`<span><i style="background:var(--ice)"></i>Risk score</span><span><i style="background:var(--warn)"></i>Step-up ${TH.step}</span><span><i style="background:var(--crit)"></i>Scope-shrink ${TH.restrict}</span><span><i style="background:var(--quar)"></i>Quarantine ${TH.quar}</span>`;
+}
+function renderIncidents(){
+  if(!S.dirtyInc)return;S.dirtyInc=false;
+  const open=S.incidents.filter(i=>i.status==="open").length;$("inc-count").textContent=open?open+" open":"none open";
+  if(!S.incidents.length){$("incs").innerHTML='<p class="empty">No incidents yet. Run a scenario from the attack lab and one opens here with its full explanation.</p>';return;}
+  $("incs").innerHTML=S.incidents.slice(0,8).map(inc=>{
+    const a=S.agents[inc.agent];const isOpen=inc.status==="open";
+    const fs=Object.entries(inc.factors).sort((p,q)=>q[1]-p[1]).slice(0,4);
+    const src=inc.chain?`Lineage: taint arrived through a call from <b>${esc(S.agents[inc.chain].name)}</b>.`:inc.src?`Trigger: untrusted input <b>${esc(inc.src)}</b> was ingested just before the drift.`:"";
+    return `<div class="inc" style="${isOpen?"":"opacity:.62"}">
+      <div class="inc-h"><div><b>${inc.id} · ${esc(a.name)}</b><div class="empty">${isOpen?`opened ${fmtT(inc.opened)} · ${MODE_LABEL[inc.mode]}`:inc.status}</div></div><div style="text-align:right"><div class="rs" style="color:${riskColor(inc.peak)}">${Math.round(inc.peak)}</div><span class="empty">peak risk</span></div></div>
+      <div class="why"><ul>${fs.map(([k,v])=>`<li>${FACTORS[k]} <span class="mono" style="color:var(--mute)">+${v.toFixed(1)}</span></li>`).join("")}</ul></div>
+      ${src?`<div class="why">${src}</div>`:""}
+      ${inc.twin?`<div class="tw-verdict ${inc.twin.div?"bad":"good"}" style="font-size:12px">${inc.twin.div?`Doppelgänger: possession proven · culprit <b>${esc(inc.twin.culprit)}</b>`:"Doppelgänger: twin did the same, likely legitimate"}</div>`:""}
+      <div class="preserved">${inc.blocked} risky action${inc.blocked===1?"":"s"} held or denied · ${inc.kept} in-role action${inc.kept===1?"":"s"} kept running</div>
+      <div class="why" style="color:var(--mute);font-size:12px"><ul>${inc.timeline.slice(-5).map(e=>`<li><span class="mono">${fmtT(e.t)}</span> ${e.text}</li>`).join("")}</ul></div>
+      ${isOpen?`<div class="acts"><button class="btn small danger" data-inc="${inc.id}" data-how="quar">Quarantine now</button><button class="btn small" data-inc="${inc.id}" data-how="fix">Remediate · fresh token</button><button class="btn small" data-inc="${inc.id}" data-how="legit">Mark legitimate</button></div>`:""}
+    </div>`}).join("");
+}
+function renderGraph(){
+  const svg=$("graph");const ids=S.order;const n=ids.length;const cx=310,cy=200,r=135;
+  const pos={};ids.forEach((k,i)=>{const ang=-Math.PI/2+i*2*Math.PI/n;pos[k]=[cx+r*Math.cos(ang),cy+r*Math.sin(ang)];});
+  const ext=[...new Set(S.edges.filter(e=>e.to.startsWith("ext:")).map(e=>e.to))];
+  ext.forEach((k,i)=>pos[k]=[575,70+i*70]);
+  const src=[...new Set(S.edges.filter(e=>e.from.startsWith("src:")).map(e=>e.from))];
+  src.forEach((k,i)=>pos[k]=[55,70+i*70]);
+  const crit=CSSV("--crit"),line=CSSV("--line2"),mute=CSSV("--mute"),fg=CSSV("--fg"),panel=CSSV("--panel2"),ice=CSSV("--ice");
+  let h=`<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="${mute}"/></marker><marker id="arrc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="${crit}"/></marker></defs>`;
+  h+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${line}" stroke-dasharray="2 6"/>`;
+  h+=`<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="${mute}" font-size="11" font-family="${CSSV("--f-mono")}">agent gateway</text><text x="${cx}" y="${cy+12}" text-anchor="middle" fill="${ice}" font-size="11" font-family="${CSSV("--f-mono")}">${S.nEvents} actions scored</text>`;
+  const seen=new Set();
+  S.edges.slice().reverse().forEach(e=>{const key=e.from+">"+e.to;if(seen.has(key))return;seen.add(key);
+    const p=pos[e.from],q=pos[e.to];if(!p||!q)return;const age=(S.t-e.t)/40000;
+    const dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len;
+    const x1=p[0]+ux*22,y1=p[1]+uy*22,x2=q[0]-ux*24,y2=q[1]-uy*24;
+    const col=e.taint?crit:mute;
+    h+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${e.taint?2:1.3}" stroke-dasharray="${e.taint?"6 4":"0"}" opacity="${(1-age*.7).toFixed(2)}" marker-end="url(#${e.taint?"arrc":"arr"})">${e.taint?'<animate attributeName="stroke-dashoffset" from="20" to="0" dur="0.8s" repeatCount="indefinite"/>':""}</line>`;
+    if(e.blocked){const mx=(x1+x2)/2,my=(y1+y2)/2;h+=`<g transform="translate(${mx},${my})"><circle r="9" fill="${panel}" stroke="${crit}"/><path d="M-4,-4L4,4M4,-4L-4,4" stroke="${crit}" stroke-width="2"/></g>`;}
+  });
+  ids.forEach(k=>{const a=S.agents[k];const [x,y]=pos[k];const col=stColor(a);
+    h+=`<g style="cursor:pointer" data-node="${k}"><circle cx="${x}" cy="${y}" r="20" fill="${panel}" stroke="${col}" stroke-width="${a.mode==="normal"?1.5:3}"/>${a.taint>0?`<circle cx="${x}" cy="${y}" r="26" fill="none" stroke="${crit}" opacity=".6"><animate attributeName="r" values="22;30;22" dur="1.4s" repeatCount="indefinite"/></circle>`:""}
+    <text x="${x}" y="${y+4}" text-anchor="middle" fill="${fg}" font-size="11" font-weight="600" font-family="${CSSV("--f-mono")}">${Math.round(a.risk)}</text>
+    <text x="${x}" y="${y+36}" text-anchor="middle" fill="${k===S.sel?ice:mute}" font-size="11" font-family="${CSSV("--f-body")}">${esc(a.name.replace(" Agent",""))}</text></g>`;});
+  ext.forEach(k=>{const [x,y]=pos[k];h+=`<rect x="${x-58}" y="${y-14}" width="116" height="28" rx="6" fill="${panel}" stroke="${crit}"/><text x="${x}" y="${y+4}" text-anchor="middle" fill="${crit}" font-size="9.5" font-family="${CSSV("--f-mono")}">${esc(k.slice(4,24))}</text>`;});
+  src.forEach(k=>{const [x,y]=pos[k];h+=`<rect x="${x-48}" y="${y-14}" width="96" height="28" rx="6" fill="${panel}" stroke="${CSSV("--warn")}"/><text x="${x}" y="${y+4}" text-anchor="middle" fill="${CSSV("--warn")}" font-size="9.5" font-family="${CSSV("--f-mono")}">${esc(k.slice(4,20))}</text>`;});
+  svg.innerHTML=h;
+}
+function renderScenarios(){
+  $("scen").innerHTML=SCEN.map(s=>{const running=s.agent&&S.agents[s.agent].queue.length>0;return `<button class="sc-card ${s.kind}${running?" run":""}" data-sc="${s.id}"><span class="ttl">${s.title}<span>${running?"running…":s.tag}</span></span><p>${s.text}</p></button>`}).join("");
+}
+function renderAll(){renderFleet();renderDetail();renderTwin();renderHero();renderStats();renderIncidents();renderGraph();
+  const anyRun=SCEN.some(s=>s.agent&&S.agents[s.agent].queue.length>0);if(anyRun||S._wasRun)renderScenarios();S._wasRun=anyRun;}
+function selectAgent(id){S.sel=id;if($("wire-filter").value==="sel")rewire();renderAll();}
+
+// ---------- controls ----------
+let toastT;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),2600);}
+function togglePause(){S.paused=!S.paused;$("b-pause").textContent=S.paused?"Resume":"Pause";$("b-pause").setAttribute("aria-pressed",S.paused);document.body.classList.toggle("paused",S.paused);}
+function startTimer(){clearInterval(timer);timer=setInterval(tick,speed);}
+$("b-pause").addEventListener("click",togglePause);
+$("b-speed").addEventListener("change",e=>{speed=+e.target.value;startTimer();});
+$("b-reset").addEventListener("click",()=>{reset();renderScenarios();toast("Demo reset");});
+$("b-spawn").addEventListener("click",spawn);
+$("wire-filter").addEventListener("change",rewire);
+$("scen").addEventListener("click",e=>{const b=e.target.closest("[data-sc]");if(b)runScenario(b.dataset.sc);});
+$("incs").addEventListener("click",e=>{const b=e.target.closest("[data-inc]");if(b)resolveIncident(b.dataset.inc,b.dataset.how);});
+$("graph").addEventListener("click",e=>{const g=e.target.closest("[data-node]");if(g)selectAgent(g.dataset.node);});
+$("hero-attack").addEventListener("click",()=>{runScenario("pdf");$("console-sec").scrollIntoView({behavior:"smooth"});});
+$("tw-btn").addEventListener("click",()=>runTwin(S.agents[S.sel],false));
+$("hero-lab").addEventListener("click",()=>$("lab").scrollIntoView({behavior:"smooth"}));
+[["t-step","step"],["t-restrict","restrict"],["t-quar","quar"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{TH[k]=+e.target.value;$(id+"-v").textContent=TH[k];renderAll();}));
+$("t-guard").addEventListener("change",e=>{guard=e.target.checked;toast(guard?"Learning guard on":"Learning guard off. Try the Slow drift scenario.");renderAll();});
+window.addEventListener("resize",()=>renderAll());
+
+reset();renderScenarios();
+for(let i=0;i<12;i++)tick();
+startTimer();
+})();
+</script>
+<script>
+(()=>{
+"use strict";
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const ease=t=>1-Math.pow(1-t,3);
+let mouse={x:0,y:0,tx:0,ty:0};
+addEventListener("pointermove",e=>{mouse.tx=e.clientX/innerWidth-.5;mouse.ty=e.clientY/innerHeight-.5;},{passive:true});
+
+// ---------- haunted sky ----------
+const cv=document.getElementById("sky"),cx=cv.getContext("2d");
+let W=0,H=0,DPR=1,trees=null,souls=[],embers=[],fog=[],T0=performance.now();
+function rand(a,b){return a+Math.random()*(b-a)}
+function buildTrees(){
+  const c=document.createElement("canvas");c.width=W*DPR;c.height=H*DPR;const g=c.getContext("2d");g.scale(DPR,DPR);
+  function branch(x,y,len,ang,w,d){if(d===0||len<3)return;const x2=x+Math.cos(ang)*len,y2=y+Math.sin(ang)*len;
+    g.lineWidth=w;g.beginPath();g.moveTo(x,y);g.lineTo(x2,y2);g.stroke();
+    const n=d>5?2:2+Math.floor(Math.random()*2);for(let i=0;i<n;i++)branch(x2,y2,len*rand(.62,.8),ang+rand(-.75,.75),w*.68,d-1);}
+  const layers=[{col:"#170709",base:H*.9,n:Math.ceil(W/260),h:[.18,.28]},{col:"#090304",base:H*1.0,n:Math.ceil(W/380),h:[.22,.36]}];
+  layers.forEach(L=>{g.strokeStyle=L.col;g.fillStyle=L.col;g.lineCap="round";
+    g.beginPath();g.moveTo(0,H);for(let x=0;x<=W;x+=20)g.lineTo(x,L.base-Math.sin(x*.004)*18-Math.sin(x*.013)*8);g.lineTo(W,H);g.fill();
+    for(let i=0;i<L.n;i++){const x=rand(0,W);if(x>W*.45&&x<W*.6&&L===layers[1])continue;branch(x,L.base-Math.sin(x*.004)*18,H*rand(...L.h)*.38,-Math.PI/2+rand(-.12,.12),rand(5,9),8);}
+  });
+  // gothic chapel silhouette
+  g.fillStyle="#060203";const cxp=W*.74,base=H*.93,s=Math.min(W,H)/900;
+  g.beginPath();g.moveTo(cxp-90*s,base);g.lineTo(cxp-90*s,base-120*s);g.lineTo(cxp-20*s,base-170*s);g.lineTo(cxp-20*s,base-250*s);g.lineTo(cxp,base-330*s);g.lineTo(cxp+20*s,base-250*s);g.lineTo(cxp+20*s,base-170*s);g.lineTo(cxp+90*s,base-120*s);g.lineTo(cxp+90*s,base);g.fill();
+  g.fillRect(cxp-1.5*s,base-360*s,3*s,34*s);g.fillRect(cxp-10*s,base-350*s,20*s,3*s);
+  g.fillStyle="rgba(224,38,45,.9)";g.shadowColor="#E0262D";g.shadowBlur=18*s;
+  [[0,-90],[-50,-60],[50,-60],[0,-215]].forEach(([dx,dy])=>{g.beginPath();g.moveTo(cxp+dx-7*s,base+dy*s+16*s);g.lineTo(cxp+dx-7*s,base+dy*s);g.arc(cxp+dx,base+dy*s,7*s,Math.PI,0);g.lineTo(cxp+dx+7*s,base+dy*s+16*s);g.fill();});
+  g.shadowBlur=0;
+  trees=c;
+}
+function resize(){
+  DPR=Math.min(2,devicePixelRatio||1);W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;cx.setTransform(DPR,0,0,DPR,0,0);
+  buildTrees();
+  souls=Array.from({length:Math.round(clamp(W/90,8,16))},(_,i)=>({a:rand(0,6.28),r:rand(.2,.55),sp:rand(.08,.18)*(Math.random()<.5?-1:1),yo:rand(-.15,.25),wob:rand(0,6),trail:[],state:0,t:0}));
+  embers=Array.from({length:Math.round(clamp(W/14,40,110))},()=>({x:rand(0,W),y:rand(0,H),v:rand(12,40),s:rand(.6,2),f:rand(0,6)}));
+  fog=Array.from({length:6},(_,i)=>({x:rand(0,W),y:H*rand(.55,.9),r:rand(W*.25,W*.5),v:rand(6,18)*(i%2?1:-1)}));
+}
+let possessT=0,victim=null;
+function drawSky(now){
+  const t=(now-T0)/1000,dt=1/60;
+  mouse.x+=(mouse.tx-mouse.x)*.05;mouse.y+=(mouse.ty-mouse.y)*.05;
+  const sy=Math.min(scrollY,H);const mx=mouse.x,my=mouse.y;
+  const g=cx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#0b0405");g.addColorStop(.55,"#160608");g.addColorStop(1,"#22080a");
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  // stars
+  cx.fillStyle="rgba(235,217,198,.5)";for(let i=0;i<70;i++){const x=(i*397%W),y=(i*211%(H*.55));const tw=.4+.6*Math.abs(Math.sin(t*.7+i));cx.globalAlpha=tw*.5;cx.fillRect(x-mx*8,y-my*6-sy*.05,1.2,1.2);}cx.globalAlpha=1;
+  // moon + sigil
+  const R=Math.min(W,H)*.2,mxp=W*.72-mx*30,myp=H*.32-my*20-sy*.25;
+  const halo=cx.createRadialGradient(mxp,myp,R*.6,mxp,myp,R*2.6);halo.addColorStop(0,"rgba(224,38,45,.35)");halo.addColorStop(.4,"rgba(142,16,22,.12)");halo.addColorStop(1,"rgba(0,0,0,0)");
+  cx.fillStyle=halo;cx.fillRect(0,0,W,H);
+  const mg=cx.createRadialGradient(mxp-R*.3,myp-R*.3,R*.1,mxp,myp,R);mg.addColorStop(0,"#3a1012");mg.addColorStop(.75,"#1b0607");mg.addColorStop(1,"#0d0304");
+  cx.fillStyle=mg;cx.beginPath();cx.arc(mxp,myp,R,0,7);cx.fill();
+  cx.save();cx.translate(mxp,myp);cx.rotate(t*.05);cx.strokeStyle="rgba(224,38,45,.75)";cx.shadowColor="#E0262D";cx.shadowBlur=14;
+  cx.lineWidth=2;cx.beginPath();cx.arc(0,0,R*1.04,0,7);cx.stroke();cx.lineWidth=1;cx.beginPath();cx.arc(0,0,R*.92,0,7);cx.stroke();
+  cx.beginPath();for(let i=0;i<=5;i++){const a=-Math.PI/2+i*4*Math.PI/5;const x=Math.cos(a)*R*.9,y=Math.sin(a)*R*.9;i?cx.lineTo(x,y):cx.moveTo(x,y);}cx.globalAlpha=.55;cx.stroke();cx.globalAlpha=1;
+  for(let i=0;i<36;i++){const a=i*Math.PI/18;cx.beginPath();cx.moveTo(Math.cos(a)*R*1.08,Math.sin(a)*R*1.08);cx.lineTo(Math.cos(a)*R*(i%3?1.13:1.2),Math.sin(a)*R*(i%3?1.13:1.2));cx.stroke();}
+  cx.restore();cx.shadowBlur=0;
+  // souls orbit the moon
+  possessT-=dt;
+  if(possessT<=0){souls.forEach(s=>{if(s.state===3){s.state=0;s.t=0}});victim=souls[Math.floor(Math.random()*souls.length)];victim.state=1;victim.t=0;possessT=7;}
+  souls.forEach(s=>{
+    s.a+=s.sp*dt*(s.state===2?.2:1);s.t+=dt;
+    let x=mxp+Math.cos(s.a)*R*(1.4+s.r*2.2)+Math.sin(t+s.wob)*10,y=myp+Math.sin(s.a)*R*(.5+s.r)+s.yo*H*.4+Math.cos(t*.8+s.wob)*8;
+    if(s.state===1&&s.t>1.6){s.state=2;s.t=0}
+    if(s.state===2&&s.t>2.2){s.state=3;s.t=0}
+    if(s.state>=1){x+=(Math.random()-.5)*(s.state===1?4:2);}
+    s.trail.push([x,y]);if(s.trail.length>16)s.trail.shift();
+    const col=s.state===0?"235,217,198":s.state===3?"235,217,198":"224,38,45";
+    for(let i=1;i<s.trail.length;i++){cx.strokeStyle=`rgba(${col},${i/s.trail.length*.35})`;cx.lineWidth=i/s.trail.length*3;cx.beginPath();cx.moveTo(...s.trail[i-1]);cx.lineTo(...s.trail[i]);cx.stroke();}
+    const al=s.state===3?Math.max(0,1-s.t/1.5):1;
+    const gr=cx.createRadialGradient(x,y,0,x,y,14);gr.addColorStop(0,`rgba(${col},${.95*al})`);gr.addColorStop(1,`rgba(${col},0)`);
+    cx.fillStyle=gr;cx.beginPath();cx.arc(x,y,14,0,7);cx.fill();
+    if(s.state===2){const k=ease(clamp(s.t/.6));const rr=60-44*k;cx.strokeStyle=`rgba(224,38,45,${.9})`;cx.lineWidth=1.5;cx.beginPath();cx.arc(x,y,rr,0,7);cx.stroke();
+      cx.save();cx.translate(x,y);cx.rotate(s.t*2);cx.beginPath();for(let i=0;i<4;i++){const a=i*Math.PI/2;cx.moveTo(Math.cos(a)*(rr+4),Math.sin(a)*(rr+4));cx.lineTo(Math.cos(a)*(rr+12),Math.sin(a)*(rr+12));}cx.stroke();cx.restore();
+      if(s.t>.5){cx.font="600 10px 'JetBrains Mono', monospace";cx.fillStyle="rgba(255,201,197,.95)";cx.fillText("POSSESSED · CAUGHT",x+22,y-18);}}
+    if(s.state===1&&s.t<1.6){cx.font="600 10px 'JetBrains Mono', monospace";cx.fillStyle="rgba(255,192,97,.85)";cx.fillText("drift "+Math.round(20+s.t*40),x+16,y-12);}
+  });
+  // fog
+  fog.forEach(f=>{f.x+=f.v*dt;if(f.x-f.r>W)f.x=-f.r;if(f.x+f.r<0)f.x=W+f.r;const fg=cx.createRadialGradient(f.x-mx*40,f.y-sy*.1,0,f.x-mx*40,f.y-sy*.1,f.r);fg.addColorStop(0,"rgba(120,40,44,.13)");fg.addColorStop(1,"rgba(0,0,0,0)");cx.fillStyle=fg;cx.fillRect(0,0,W,H);});
+  // trees parallax
+  if(trees)cx.drawImage(trees,0,0,trees.width,trees.height,-mx*24-12,-my*10+sy*.15,W+24,H);
+  // embers
+  embers.forEach(e=>{e.y-=e.v*dt;e.x+=Math.sin(t+e.f)*.3;if(e.y<-10){e.y=H+10;e.x=rand(0,W)}const a=.35+.45*Math.abs(Math.sin(t*3+e.f));cx.fillStyle=`rgba(255,${80+Math.floor(e.f*20)},60,${a})`;cx.fillRect(e.x-mx*14,e.y,e.s,e.s);});
+  // blood smear edge (like the template)
+  const sm=cx.createLinearGradient(0,0,W*.08,0);sm.addColorStop(0,"rgba(142,16,22,.75)");sm.addColorStop(1,"rgba(142,16,22,0)");cx.fillStyle=sm;cx.fillRect(0,0,W*.08,H);
+}
+
+// ---------- motion engine (framer-style: keyframed scroll transforms, eased with springs) ----------
+const J=s=>JSON.parse(s.replace(/([\[,:])\./g,"$10."));
+const tracked=[...document.querySelectorAll("[data-k]")].map(el=>{const k=J(el.dataset.k);return {el,k,cur:{x:0,y:0,r:0,s:1,o:1},init:false,track:el.closest(".track")}});
+const counts=[...document.querySelectorAll("[data-count]")].map(el=>({el,pts:J(el.dataset.count)}));
+const bars=[...document.querySelectorAll("[data-bar]")].map(el=>({el,pts:J(el.dataset.bar)}));
+const clsEls=[...document.querySelectorAll("[data-cls]")].map(el=>({el,pts:J(el.dataset.cls),last:null}));
+const ID={x:0,y:0,r:0,s:1,o:1};
+const lerpO=(a,b,t)=>{const o={};for(const k in ID){const av=a[k]??ID[k],bv=b[k]??ID[k];o[k]=av+(bv-av)*t}return o};
+const piece=(pts,p)=>{if(p<=pts[0][0])return pts[0][1];for(let i=1;i<pts.length;i++){if(p<=pts[i][0]){const[a,av]=pts[i-1],[b,bv]=pts[i];return av+(bv-av)*ease((p-a)/(b-a||1))}}return pts.at(-1)[1]};
+function trackP(tr){const r=tr.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight))}
+function targetFor(k,p){
+  let st={...ID};
+  if(k.from){if(p<k.in[0])st={...ID,...k.from};else if(p<k.in[1])st=lerpO({...ID,...k.from},ID,ease((p-k.in[0])/(k.in[1]-k.in[0])));}
+  if(k.mid&&p>=k.mid[0]){st=lerpO(st,{...ID,...k.midTo},ease(clamp((p-k.mid[0])/(k.mid[1]-k.mid[0]))));}
+  if(k.out&&p>=k.out[0]){st=lerpO(st,{...ID,...k.to},ease(clamp((p-k.out[0])/(k.out[1]-k.out[0]))));}
+  return st;
+}
+const lvlEls=[...document.querySelectorAll("[data-lvl]")];
+const colFor=v=>v>=85?"var(--quar)":v>=70?"var(--crit)":v>=40?"var(--warn)":"var(--ok)";
+function motion(){
+  const story=document.getElementById("story");const sp=trackP(story);
+  const xs=Math.min(1,innerWidth/1200);
+  document.getElementById("story-prog").style.width=(sp*100)+"%";
+  tracked.forEach(o=>{
+    const p=o.track?trackP(o.track):0;const tg=targetFor(o.k,p);tg.x*=xs;tg.y*=Math.max(.6,xs);
+    if(!o.init||reduce){o.cur={...tg};o.init=true}else for(const k in tg)o.cur[k]+=(tg[k]-o.cur[k])*.16;
+    const c=o.cur;o.el.style.transform=`translate3d(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px,0) rotate(${c.r.toFixed(2)}deg) scale(${c.s.toFixed(3)})`;o.el.style.opacity=c.o.toFixed(3);
+  });
+  counts.forEach(c=>{const v=Math.round(piece(c.pts,sp));if(c.el.textContent!=String(v)){c.el.textContent=v;c.el.style.color=colFor(v);}
+    lvlEls.forEach((l,i)=>{const lo=+l.dataset.lvl,hi=lvlEls[i+1]?+lvlEls[i+1].dataset.lvl:101;l.classList.toggle("on",v>=lo&&v<hi)});});
+  bars.forEach(b=>{const v=piece(b.pts,sp);b.el.style.width=v+"%";b.el.style.background=colFor(v);b.el.style.boxShadow="0 0 12px "+colFor(v);});
+  clsEls.forEach(c=>{let cl="";c.pts.forEach(([at,name])=>{if(sp>=at)cl=name});if(cl!==c.last){["tainted","possessed","caught"].forEach(n=>c.el.classList.remove(n));if(cl==="possessed"||cl==="caught")c.el.classList.add("tainted");if(cl)c.el.classList.add(cl);if(cl==="caught")c.el.classList.remove("possessed");c.last=cl;}});
+  // hero parallax
+  const hi=document.getElementById("hero-in");const y=Math.min(scrollY,innerHeight);hi.style.transform=`translate3d(${(-mouse.x*14).toFixed(1)}px,${(y*.35).toFixed(1)}px,0)`;hi.style.opacity=String(clamp(1-y/(innerHeight*.75)));
+  document.getElementById("nav").classList.toggle("solid",scrollY>40);
+}
+
+// in-view fly-ins: only elements below the fold start displaced, so the page is complete at rest
+const flyEls=[...document.querySelectorAll(".fly[data-fly]")];
+function parseFly(s){const o={x:0,y:0,r:0,s:1,o:1};s.split(/\s+/).forEach(p=>{const[k,v]=p.split(":");o[k]=+v});return o}
+if(!reduce&&"IntersectionObserver" in window){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const el=e.target;el.style.transform="";el.style.opacity="";el.style.filter="";io.unobserve(el);setTimeout(()=>{el.classList.remove("fly");el.classList.add("revealed")},1500)}}),{threshold:.15,rootMargin:"0px 0px -6% 0px"});
+  flyEls.forEach(el=>{if(el.getBoundingClientRect().top>innerHeight){const f=parseFly(el.dataset.fly);const xs=Math.min(1,innerWidth/1200);
+    el.style.transform=`translate3d(${f.x*xs}px,${f.y}px,0) rotate(${f.r}deg) scale(${f.s})`;el.style.opacity=f.o;el.style.filter="blur(6px)";io.observe(el);}});
+}
+
+// magnetic buttons + tilt cards
+document.querySelectorAll(".magnetic").forEach(b=>{
+  b.addEventListener("pointermove",e=>{const r=b.getBoundingClientRect();const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);b.style.transform=`translate(${dx*.25}px,${dy*.35}px)`;});
+  b.addEventListener("pointerleave",()=>{b.style.transition="transform .5s cubic-bezier(.2,1.6,.3,1)";b.style.transform="";setTimeout(()=>b.style.transition="",500);});
+});
+document.querySelectorAll(".tilt").forEach(c=>{
+  c.addEventListener("pointermove",e=>{const r=c.getBoundingClientRect();const px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;
+    c.style.setProperty("--mx",px*100+"%");c.style.setProperty("--my",py*100+"%");
+    if(!c.style.opacity||c.style.opacity==="1"||c.style.opacity==="")c.style.transform=`perspective(700px) rotateY(${(px-.5)*14}deg) rotateX(${(.5-py)*14}deg) translateY(-4px)`;});
+  c.addEventListener("pointerleave",()=>{c.style.transform="";});
+});
+
+function frame(now){drawSky(now);motion();requestAnimationFrame(frame)}
+addEventListener("resize",()=>{resize()});
+resize();
+if(reduce){drawSky(performance.now());addEventListener("scroll",motion,{passive:true});motion();}
+else requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
